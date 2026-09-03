@@ -66,6 +66,7 @@ services:
       DATABASE_NAME: teslamate
       DATABASE_HOST: database
       TZ: Asia/Shanghai
+      GF_USERS_DEFAULT_LANGUAGE: zh-Hans
     ports:
       - "${TM_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
