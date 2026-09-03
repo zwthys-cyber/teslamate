@@ -31,6 +31,7 @@ defmodule TeslaMateWeb.MobileApiController do
 
   defp json_value(%Decimal{} = value), do: Decimal.to_float(value)
   defp json_value(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp json_value(value) when is_boolean(value) or is_nil(value), do: value
   defp json_value(:unknown), do: nil
   defp json_value(value) when is_atom(value), do: Atom.to_string(value)
   defp json_value(value), do: value
