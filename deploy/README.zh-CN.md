@@ -13,7 +13,8 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml logs -f teslamate
 docker compose --env-file deploy/.env -f deploy/compose.yaml restart
 ```
 
-Web 服务仅监听服务器本机。可通过 SSH 隧道访问：
+Web 服务监听 `deploy/.env` 中的 `TM_BIND_ADDRESS`。设为 Tailscale 私有 IP 时，
+仅同一 tailnet 内的设备可以访问；保持为 `127.0.0.1` 时可通过 SSH 隧道访问：
 
 ```bash
 ssh -L 4000:127.0.0.1:4000 -L 3000:127.0.0.1:3000 user@server

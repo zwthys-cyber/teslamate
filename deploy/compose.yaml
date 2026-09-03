@@ -25,7 +25,7 @@ services:
       TESLA_AUTH_PATH: /oauth2/v3
       TESLA_WSS_HOST: wss://streaming.vn.cloud.tesla.cn
     ports:
-      - "127.0.0.1:4000:4000"
+      - "${TM_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     volumes:
       - ../import:/opt/app/import
     cap_drop:
@@ -67,7 +67,7 @@ services:
       DATABASE_HOST: database
       TZ: Asia/Shanghai
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${TM_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
       - teslamate-grafana-data:/var/lib/grafana
     security_opt:
