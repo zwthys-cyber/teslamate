@@ -49,6 +49,7 @@ config/*.env
 .env
 
 /import/
+/deploy/backups/
 .srtm_cache/
 
 # Make sure IDE files don't get committed to the repo

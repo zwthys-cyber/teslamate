@@ -52,10 +52,12 @@ services:
       - no-new-privileges:true
 
   grafana:
-    image: local/teslamate-grafana:${TESLAMATE_VERSION}
+    image: local/teslamate-grafana-cn:${CHINESE_DASHBOARDS_VERSION}
     build:
-      context: ../grafana
+      context: ../vendor/teslamate-chinese-dashboards
       dockerfile: Dockerfile
+      args:
+        VERSION: ${CHINESE_DASHBOARDS_VERSION}
     restart: unless-stopped
     depends_on:
       database:
@@ -67,6 +69,7 @@ services:
       DATABASE_HOST: database
       TZ: Asia/Shanghai
       GF_USERS_DEFAULT_LANGUAGE: zh-Hans
+      GF_USERS_DEFAULT_LOCALE: zh-Hans
     ports:
       - "${TM_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:

@@ -1,0 +1,3 @@
+[submodule "vendor/teslamate-chinese-dashboards"]
+	path = vendor/teslamate-chinese-dashboards
+	url = https://github.com/wjsall/teslamate-chinese-dashboards.git

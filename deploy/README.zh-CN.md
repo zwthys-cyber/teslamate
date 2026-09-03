@@ -3,6 +3,9 @@
 本目录从当前 fork 源码构建 TeslaMate 和 Grafana。运行时密钥保存在未纳入 Git 的
 `deploy/.env` 中，数据保存在 Docker 命名卷中。
 
+中文仪表盘来自 `wjsall/teslamate-chinese-dashboards`，以 Git submodule 固定到经过
+验证的提交。原版 TeslaMate 应用仍从本 fork 构建，中文 Grafana 镜像从该固定源码构建。
+
 ## 管理命令
 
 在仓库根目录执行：
