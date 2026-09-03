@@ -2,6 +2,14 @@
 
 原生 SwiftUI 客户端，最低支持 iOS 17。
 
+## GitHub 自动编译
+
+进入仓库的 **Actions → Build iOS IPA → Run workflow**。完成后在该次运行页面底部的
+**Artifacts** 下载 `TeslaMate-iOS17-unsigned-…`，解压后得到 IPA。
+
+该产物未使用 Apple 开发者证书签名，适用于 TrollStore 等自行管理签名的安装方式；
+常规 iPhone 安装请在 Xcode 中选择自己的 Team 后编译。
+
 ## 在 Mac 上打开
 
 1. 安装 Xcode 15 或更新版本。
