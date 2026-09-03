@@ -1,0 +1,90 @@
+name: teslamate-fork
+
+services:
+  teslamate:
+    image: local/teslamate:${TESLAMATE_VERSION}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    environment:
+      ENCRYPTION_KEY: ${TM_ENCRYPTION_KEY}
+      DATABASE_USER: teslamate
+      DATABASE_PASS: ${TM_DB_PASSWORD}
+      DATABASE_NAME: teslamate
+      DATABASE_HOST: database
+      MQTT_HOST: mosquitto
+      TZ: Asia/Shanghai
+      TESLA_API_HOST: https://owner-api.vn.cloud.tesla.cn
+      TESLA_AUTH_HOST: https://auth.tesla.cn
+      TESLA_AUTH_PATH: /oauth2/v3
+      TESLA_WSS_HOST: wss://streaming.vn.cloud.tesla.cn
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ../import:/opt/app/import
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  database:
+    image: postgres:18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: teslamate
+      POSTGRES_PASSWORD: ${TM_DB_PASSWORD}
+      POSTGRES_DB: teslamate
+      TZ: Asia/Shanghai
+    volumes:
+      - teslamate-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teslamate -d teslamate"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: local/teslamate-grafana:${TESLAMATE_VERSION}
+    build:
+      context: ../grafana
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DATABASE_USER: teslamate
+      DATABASE_PASS: ${TM_DB_PASSWORD}
+      DATABASE_NAME: teslamate
+      DATABASE_HOST: database
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - teslamate-grafana-data:/var/lib/grafana
+    security_opt:
+      - no-new-privileges:true
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    command: mosquitto -c /mosquitto-no-auth.conf
+    volumes:
+      - mosquitto-conf:/mosquitto/config
+      - mosquitto-data:/mosquitto/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  teslamate-db:
+  teslamate-grafana-data:
+  mosquitto-conf:
+  mosquitto-data:
