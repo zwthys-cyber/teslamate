@@ -159,12 +159,87 @@ const DirectionArrow = CircleMarker.extend({
   },
 });
 
+const isOutsideChina = (lat, lng) =>
+  lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+
+function wgs84ToGcj02(latValue, lngValue) {
+  const lat = Number(latValue);
+  const lng = Number(lngValue);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || isOutsideChina(lat, lng)) {
+    return [latValue, lngValue];
+  }
+
+  const a = 6378245.0;
+  const ee = 0.00669342162296594323;
+  const x = lng - 105.0;
+  const y = lat - 35.0;
+
+  let dLat =
+    -100.0 +
+    2.0 * x +
+    3.0 * y +
+    0.2 * y * y +
+    0.1 * x * y +
+    0.2 * Math.sqrt(Math.abs(x));
+  dLat +=
+    ((20.0 * Math.sin(6.0 * x * Math.PI) +
+      20.0 * Math.sin(2.0 * x * Math.PI)) *
+      2.0) /
+    3.0;
+  dLat +=
+    ((20.0 * Math.sin(y * Math.PI) +
+      40.0 * Math.sin((y / 3.0) * Math.PI)) *
+      2.0) /
+    3.0;
+  dLat +=
+    ((160.0 * Math.sin((y / 12.0) * Math.PI) +
+      320.0 * Math.sin((y * Math.PI) / 30.0)) *
+      2.0) /
+    3.0;
+
+  let dLng =
+    300.0 +
+    x +
+    2.0 * y +
+    0.1 * x * x +
+    0.1 * x * y +
+    0.1 * Math.sqrt(Math.abs(x));
+  dLng +=
+    ((20.0 * Math.sin(6.0 * x * Math.PI) +
+      20.0 * Math.sin(2.0 * x * Math.PI)) *
+      2.0) /
+    3.0;
+  dLng +=
+    ((20.0 * Math.sin(x * Math.PI) +
+      40.0 * Math.sin((x / 3.0) * Math.PI)) *
+      2.0) /
+    3.0;
+  dLng +=
+    ((150.0 * Math.sin((x / 12.0) * Math.PI) +
+      300.0 * Math.sin((x * Math.PI) / 30.0)) *
+      2.0) /
+    3.0;
+
+  const radLat = (lat / 180.0) * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / (((a * (1 - ee)) / (magic * sqrtMagic)) * Math.PI);
+  dLng = (dLng * 180.0) / ((a / sqrtMagic) * Math.cos(radLat) * Math.PI);
+
+  return [lat + dLat, lng + dLng];
+}
+
 function createMap(opts) {
   const map = new M(opts.elId != null ? `map_${opts.elId}` : "map", opts);
 
-  const osm = new TileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-  });
+  const osm = new TileLayer(
+    opts.useChinaTiles
+      ? "https://wprd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}"
+      : "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxZoom: 19 },
+  );
 
   if (opts.enableHybridLayer) {
     const hybrid = new TileLayer(
@@ -192,6 +267,7 @@ export const SimpleMap = {
 
     const map = createMap({
       elId: this.el.dataset.id,
+      useChinaTiles: true,
       zoomControl: !!this.el.dataset.zoom,
       boxZoom: false,
       doubleClickZoom: false,
@@ -204,7 +280,8 @@ export const SimpleMap = {
     this.map = map;
 
     const isArrow = this.el.dataset.marker === "arrow";
-    const [lat, lng, heading] = $position.value.split(",");
+    const [wgsLat, wgsLng, heading] = $position.value.split(",");
+    const [lat, lng] = wgs84ToGcj02(wgsLat, wgsLng);
 
     const marker = isArrow
       ? new DirectionArrow([lat, lng], heading)
@@ -299,7 +376,8 @@ export const SimpleMap = {
 
     if (isArrow) {
       const setView = () => {
-        const [lat, lng, heading] = $position.value.split(",");
+        const [wgsLat, wgsLng, heading] = $position.value.split(",");
+        const [lat, lng] = wgs84ToGcj02(wgsLat, wgsLng);
         marker.setHeading(heading);
         marker.setLatLng([lat, lng]);
         map.setView([lat, lng], map.getZoom());
