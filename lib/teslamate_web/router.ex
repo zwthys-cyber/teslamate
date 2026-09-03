@@ -31,6 +31,11 @@ defmodule TeslaMateWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :mobile_api do
+    plug :accepts, ["json"]
+    plug TeslaMateWeb.Plugs.MobileApiAuth
+  end
+
   scope "/", TeslaMateWeb do
     pipe_through :browser
 
@@ -53,6 +58,13 @@ defmodule TeslaMateWeb.Router do
 
     put "/car/:id/logging/resume", CarController, :resume_logging
     put "/car/:id/logging/suspend", CarController, :suspend_logging
+  end
+
+
+  scope "/api/mobile/v1", TeslaMateWeb do
+    pipe_through :mobile_api
+
+    get "/vehicles", MobileApiController, :vehicles
   end
 
   def fetch_settings(conn, _opts) do

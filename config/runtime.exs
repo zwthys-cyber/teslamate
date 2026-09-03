@@ -110,7 +110,8 @@ defmodule Util do
 end
 
 config :teslamate,
-  default_geofence: System.get_env("DEFAULT_GEOFENCE")
+  default_geofence: System.get_env("DEFAULT_GEOFENCE"),
+  mobile_api_token: System.get_env("MOBILE_API_TOKEN")
 
 case System.get_env("DATABASE_SOCKET_DIR") do
   nil ->

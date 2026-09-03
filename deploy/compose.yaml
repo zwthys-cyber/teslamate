@@ -24,6 +24,7 @@ services:
       TESLA_AUTH_HOST: https://auth.tesla.cn
       TESLA_AUTH_PATH: /oauth2/v3
       TESLA_WSS_HOST: wss://streaming.vn.cloud.tesla.cn
+      MOBILE_API_TOKEN: ${MOBILE_API_TOKEN}
     ports:
       - "${TM_BIND_ADDRESS:-127.0.0.1}:4000:4000"
     volumes:
