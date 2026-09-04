@@ -5,7 +5,7 @@ defmodule TeslaMateWeb.MobileApiController do
 
   alias TeslaMate.{Log, Repo, Vehicles}
   alias TeslaMate.Locations.GeoFence
-  alias TeslaMate.Log.{Charge, ChargingProcess, Drive, Position}
+  alias TeslaMate.Log.{Charge, ChargingProcess, Drive, Position, Update}
 
   @fields ~w(
     state since healthy latitude longitude heading battery_level usable_battery_level
@@ -189,6 +189,19 @@ defmodule TeslaMateWeb.MobileApiController do
           session_fee: g.session_fee
         })
       end)
+
+    json(conn, %{data: data})
+  end
+
+  def updates(conn, params) do
+    data =
+      Update
+      |> where([u], u.car_id == ^car_id(params))
+      |> order_by([u], desc: u.start_date)
+      |> limit(100)
+      |> select([u], %{id: u.id, start_date: u.start_date, end_date: u.end_date, version: u.version})
+      |> Repo.all()
+      |> Enum.map(&json_map/1)
 
     json(conn, %{data: data})
   end
