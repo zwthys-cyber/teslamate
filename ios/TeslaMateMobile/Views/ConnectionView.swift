@@ -5,6 +5,7 @@ struct ConnectionView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var serverURL = ""
     @State private var token = ""
+    @State private var isConnecting = false
 
     var body: some View {
         NavigationStack {
@@ -17,14 +18,21 @@ struct ConnectionView: View {
                         .textInputAutocapitalization(.never)
                 }
                 Section {
-                    Button("保存并连接") {
-                        session.save(serverURL: serverURL, token: token)
+                    Button {
                         Task {
+                            isConnecting = true
+                            session.save(serverURL: serverURL, token: token)
                             await session.refresh()
+                            isConnecting = false
                             if session.errorMessage == nil { dismiss() }
                         }
+                    } label: {
+                        HStack {
+                            if isConnecting { ProgressView() }
+                            Text(isConnecting ? "正在连接…" : "保存并连接")
+                        }
                     }
-                    .disabled(serverURL.isEmpty || token.isEmpty)
+                    .disabled(serverURL.isEmpty || token.isEmpty || isConnecting)
                 } footer: {
                     Text("请先打开 Tailscale。访问令牌只保存在本机钥匙串中。")
                 }
