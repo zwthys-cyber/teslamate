@@ -5,13 +5,18 @@ defmodule TeslaMateWeb.MobileApiController do
 
   alias TeslaMate.{Log, Repo, Vehicles}
   alias TeslaMate.Locations.GeoFence
-  alias TeslaMate.Log.{ChargingProcess, Drive, Position}
+  alias TeslaMate.Log.{Charge, ChargingProcess, Drive, Position}
 
   @fields ~w(
     state since healthy latitude longitude heading battery_level usable_battery_level
     ideal_battery_range_km est_battery_range_km rated_battery_range_km charging_state
     charge_limit_soc charger_power plugged_in speed outside_temp inside_temp is_climate_on
     locked sentry_mode odometer version geofence model trim_badging exterior_color
+    windows_open doors_open trunk_open frunk_open charge_port_door_open shift_state
+    time_to_full_charge charger_actual_current charger_voltage charger_phases charge_energy_added
+    update_available update_version update_status is_preconditioning is_user_present
+    tpms_pressure_fl tpms_pressure_fr tpms_pressure_rl tpms_pressure_rr
+    tpms_soft_warning_fl tpms_soft_warning_fr tpms_soft_warning_rl tpms_soft_warning_rr
   )a
 
   def vehicles(conn, _params) do
@@ -79,6 +84,26 @@ defmodule TeslaMateWeb.MobileApiController do
       |> Enum.map(&charge_json/1)
 
     json(conn, %{data: data})
+  end
+
+  def charge(conn, %{"id" => id}) do
+    process = ChargingProcess |> Repo.get!(id) |> Repo.preload([:address, :geofence, :position])
+
+    samples =
+      Charge
+      |> where([c], c.charging_process_id == ^process.id)
+      |> order_by([c], asc: c.date)
+      |> select([c], %{
+        date: c.date,
+        battery_level: c.battery_level,
+        charger_power: c.charger_power,
+        energy_added_kwh: c.charge_energy_added,
+        outside_temp: c.outside_temp
+      })
+      |> Repo.all()
+      |> Enum.map(&json_map/1)
+
+    json(conn, %{data: Map.put(charge_json(process), :samples, samples)})
   end
 
   def statistics(conn, params) do

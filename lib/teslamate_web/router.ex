@@ -68,6 +68,7 @@ defmodule TeslaMateWeb.Router do
     get "/drives", MobileApiController, :drives
     get "/drives/:id", MobileApiController, :drive
     get "/charging", MobileApiController, :charging
+    get "/charging/:id", MobileApiController, :charge
     get "/statistics", MobileApiController, :statistics
     get "/geofences", MobileApiController, :geofences
   end
