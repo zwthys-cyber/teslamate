@@ -65,6 +65,11 @@ defmodule TeslaMateWeb.Router do
     pipe_through :mobile_api
 
     get "/vehicles", MobileApiController, :vehicles
+    get "/drives", MobileApiController, :drives
+    get "/drives/:id", MobileApiController, :drive
+    get "/charging", MobileApiController, :charging
+    get "/statistics", MobileApiController, :statistics
+    get "/geofences", MobileApiController, :geofences
   end
 
   def fetch_settings(conn, _opts) do
