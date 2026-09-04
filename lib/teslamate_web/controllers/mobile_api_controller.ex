@@ -206,6 +206,32 @@ defmodule TeslaMateWeb.MobileApiController do
     json(conn, %{data: data})
   end
 
+  def battery_health(conn, params) do
+    car_id = car_id(params)
+
+    data =
+      Position
+      |> where(
+        [p],
+        p.car_id == ^car_id and p.battery_level >= 80 and
+          not is_nil(p.rated_battery_range_km) and p.rated_battery_range_km > 0
+      )
+      |> group_by([p], fragment("date_trunc('day', ?)", p.date))
+      |> order_by([p], desc: fragment("date_trunc('day', ?)", p.date))
+      |> limit(365)
+      |> select([p], %{
+        date: fragment("to_char(date_trunc('day', ?), 'YYYY-MM-DD')", p.date),
+        full_range_km:
+          fragment("AVG((?::float / NULLIF(?, 0)) * 100)", p.rated_battery_range_km, p.battery_level),
+        odometer: avg(p.odometer),
+        samples: count(p.id)
+      })
+      |> Repo.all()
+      |> Enum.map(&json_map/1)
+
+    json(conn, %{data: data})
+  end
+
   defp drive_json(drive) do
     json_map(%{
       id: drive.id,
