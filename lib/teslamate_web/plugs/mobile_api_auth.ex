@@ -9,6 +9,7 @@ defmodule TeslaMateWeb.Plugs.MobileApiAuth do
 
   @impl true
   def call(conn, _opts) do
+    conn = put_resp_header(conn, "cache-control", "no-store")
     expected = Application.get_env(:teslamate, :mobile_api_token)
 
     with token when is_binary(token) and byte_size(token) >= 32 <- expected,

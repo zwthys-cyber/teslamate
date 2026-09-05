@@ -1,6 +1,7 @@
 import SwiftUI
 
 @main
+@MainActor
 struct TeslaMateMobileApp: App {
     @State private var session = AppSession()
 
@@ -8,7 +9,6 @@ struct TeslaMateMobileApp: App {
         WindowGroup {
             RootView()
                 .environment(session)
-                .preferredColorScheme(.dark)
         }
     }
 }

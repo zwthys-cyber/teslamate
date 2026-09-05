@@ -13,6 +13,10 @@ struct VehicleDashboard: View {
         ScrollView {
             VStack(spacing: 16) {
                 header
+                if vehicle.healthy == false {
+                    Label("车辆数据采集暂不可用，请检查服务器的车辆连接。", systemImage: "exclamationmark.triangle")
+                        .font(.subheadline).foregroundStyle(.orange)
+                }
                 if let coordinate {
                     Map(initialPosition: .region(.init(
                         center: coordinate,
@@ -47,10 +51,10 @@ struct VehicleDashboard: View {
             Spacer()
             ZStack {
                 Circle().stroke(.secondary.opacity(0.25), lineWidth: 7)
-                Circle().trim(from: 0, to: Double(vehicle.batteryLevel ?? 0) / 100)
+                Circle().trim(from: 0, to: Double(min(100, max(0, vehicle.batteryLevel ?? 0))) / 100)
                     .stroke(batteryColor, style: .init(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text("\(vehicle.batteryLevel ?? 0)%").font(.headline.monospacedDigit())
+                Text(vehicle.batteryLevel.map { "\($0)%" } ?? "—").font(.headline.monospacedDigit())
             }
             .frame(width: 72, height: 72)
         }
@@ -64,17 +68,17 @@ struct VehicleDashboard: View {
             MetricCard(title: "车外温度", value: temperature(vehicle.outsideTemp), icon: "sun.max.fill")
             MetricCard(title: "总里程", value: distance(vehicle.odometer), icon: "gauge.with.dots.needle.67percent")
             MetricCard(title: "固件", value: vehicle.version ?? "—", icon: "cpu")
-            MetricCard(title: "车锁", value: vehicle.locked == true ? "已锁定" : "未锁定", icon: vehicle.locked == true ? "lock.fill" : "lock.open.fill")
+            MetricCard(title: "车锁", value: vehicle.locked.map { $0 ? "已锁定" : "未锁定" } ?? "未知", icon: vehicle.locked.map { $0 ? "lock.fill" : "lock.open.fill" } ?? "questionmark.circle")
             MetricCard(title: "位置", value: vehicle.geofence ?? "未知", icon: "location.fill")
         }
     }
 
     private func distance(_ value: Double?) -> String { value.map { String(format: "%.1f km", $0) } ?? "—" }
     private func temperature(_ value: Double?) -> String { value.map { String(format: "%.1f ℃", $0) } ?? "—" }
-    private var stateName: String { ["online": "在线", "asleep": "休眠", "offline": "离线", "driving": "行驶中", "charging": "充电中"][vehicle.state ?? ""] ?? "状态未知" }
-    private var stateIcon: String { vehicle.state == "online" ? "checkmark.circle.fill" : "moon.zzz.fill" }
+    private var stateName: String { ["online": "在线", "asleep": "休眠", "offline": "离线", "driving": "行驶中", "charging": "充电中", "unavailable": "暂无数据", "suspended": "采集已暂停", "updating": "更新中"][vehicle.state ?? ""] ?? "状态未知" }
+    private var stateIcon: String { ["online": "checkmark.circle.fill", "asleep": "moon.zzz.fill", "offline": "wifi.slash", "driving": "car.side.fill", "charging": "bolt.fill"][vehicle.state ?? ""] ?? "questionmark.circle" }
     private var stateColor: Color { vehicle.state == "online" ? .green : .secondary }
-    private var batteryColor: Color { (vehicle.batteryLevel ?? 0) < 20 ? .red : .green }
+    private var batteryColor: Color { vehicle.batteryLevel.map { $0 < 20 ? .red : .green } ?? .secondary }
 }
 
 private struct MetricCard: View {
