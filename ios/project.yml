@@ -15,7 +15,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zwthys.teslamate
-        PRODUCT_NAME: TeslaMate
+        PRODUCT_NAME: TeslaMateMobile
         PRODUCT_MODULE_NAME: TeslaMateMobile
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: TeslaMateMobile/Info.plist
