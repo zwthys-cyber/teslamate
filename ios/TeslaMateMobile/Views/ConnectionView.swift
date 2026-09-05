@@ -5,46 +5,65 @@ struct ConnectionView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var serverURL = ""
     @State private var token = ""
-    @State private var isConnecting = false
+    @State private var errorMessage: String?
+    @State private var connectionTask: Task<Void, Never>?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("TeslaMate 服务器") {
-                    TextField("http://100.88.30.82:4000/", text: $serverURL)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                    SecureField("访问令牌", text: $token)
-                        .textInputAutocapitalization(.never)
-                }
-                Section {
-                    Button {
-                        Task {
-                            isConnecting = true
-                            session.save(serverURL: serverURL, token: token)
-                            await session.refresh()
-                            isConnecting = false
-                            if session.errorMessage == nil { dismiss() }
-                        }
-                    } label: {
-                        HStack {
-                            if isConnecting { ProgressView() }
-                            Text(isConnecting ? "正在连接…" : "保存并连接")
+        Form {
+            Section("TeslaMate 服务器") {
+                TextField("https://your-server.example/", text: $serverURL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                SecureField("访问令牌", text: $token)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            .disabled(session.isConnecting)
+            Section {
+                Button {
+                    connectionTask = Task {
+                        errorMessage = nil
+                        do {
+                            try await session.connect(serverURL: serverURL, token: token)
+                            dismiss()
+                        } catch is CancellationError {
+                        } catch {
+                            errorMessage = error.localizedDescription
                         }
                     }
-                    .disabled(serverURL.isEmpty || token.isEmpty || isConnecting)
-                } footer: {
-                    Text("请先打开 Tailscale。访问令牌只保存在本机钥匙串中。")
+                } label: {
+                    HStack {
+                        if session.isConnecting { ProgressView() }
+                        Text(session.isConnecting ? "正在验证连接…" : "验证并保存")
+                    }
                 }
-                if let error = session.errorMessage {
-                    Section { Text(error).foregroundStyle(.red) }
-                }
+                .disabled(serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                          token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isConnecting)
+            } footer: {
+                Text("推荐使用 HTTPS。若使用 Tailscale 私网地址，请先连接 Tailscale。验证成功后才会替换当前连接，令牌保存在本机钥匙串中。")
             }
-            .navigationTitle("连接设置")
-            .onAppear {
-                serverURL = session.serverURL
-                token = session.token
+            if let error = errorMessage ?? session.errorMessage {
+                Section { Text(error).foregroundStyle(.red) }
+            }
+            if session.isConfigured {
+                Section {
+                    Button("断开连接并清除凭据", role: .destructive) {
+                        do {
+                            try session.disconnect()
+                            dismiss()
+                        } catch { errorMessage = error.localizedDescription }
+                    }
+                    .disabled(session.isConnecting)
+                }
             }
         }
+        .navigationTitle("连接设置")
+        .interactiveDismissDisabled(session.isConnecting)
+        .onAppear {
+            serverURL = session.serverURL
+            token = session.token
+        }
+        .onDisappear { connectionTask?.cancel() }
     }
 }
