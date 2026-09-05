@@ -19,7 +19,7 @@
 - 本机使用 Swift 5.10.1 Linux 工具链运行同一份核心源码和测试；临时测试适配器替代 Apple Keychain，并补充 Linux SDK 缺少的 async URLSession 方法。
 - 8 个移动 API 测试通过：使用 Elixir 1.20.2 / OTP 29 和 PostgreSQL 18 独立临时容器，未连接生产数据库。
 - Swift 源码语法、YAML、plist、工作流 bash 语法及 `git diff --check` 通过。
-- 尚未运行 Xcode 模拟器、完整 iOS 编译、Apple Keychain 集成或真机测试，也未生成本轮 IPA。
+- 本阶段的验证边界见下方后续交付验证记录。
 
 ## 下一阶段
 
@@ -52,7 +52,7 @@
 - 14 个移动 API 测试通过（含第一轮）：覆盖相同时间戳与新增记录时的分页、
   时间边界、非法筛选、跨车辆详情、缺失记录、采样上限和零值保留。
 - 本轮新增索引迁移已在临时 PostgreSQL 中执行；没有在生产库执行。
-- Swift 核心测试仍使用第一轮的 Linux 适配环境；新增 SwiftUI/MapKit/Charts 页面尚待 Xcode 完整编译和真机验证。
+- 以上核心测试也已在 Xcode 模拟器运行通过；SwiftUI/MapKit/Charts 页面已通过完整 iPhone Release 编译，真机交互仍待验证。
 
 ## 服务器只读联调
 
@@ -66,3 +66,11 @@
 
 先验证完整 iOS 构建与真机交互，再安排后端部署和新版 App 联调。
 离线持久化、统计页面、采样时间、单位设置、HTTP 例外收紧和 TestFlight 仍是后续工作。
+
+## 交付验证（2026-09-05）
+
+- GitHub Actions 的 Xcode 模拟器测试和 iPhone Release 构建通过：[运行记录](https://github.com/zwthys-cyber/teslamate/actions/runs/33980177616)。
+- 独立移动 API 工作流通过：[运行记录](https://github.com/zwthys-cyber/teslamate/actions/runs/33979873709)。
+- 配套后端 release 镜像在隔离 PostgreSQL 中完成全量迁移、启动和 HTTP 冒烟验证，覆盖鉴权、无车辆、参数错误和缺失记录。
+- App 版本更新至 0.2.0（3），新增独立命名空间的原生钥匙串增改查删和访问属性测试；该新增测试由后续 CI 验证。
+- IPA 为未签名构建，需要签名才能安装；尚未完成真机验收或 TestFlight 分发。生产后端仍未升级。

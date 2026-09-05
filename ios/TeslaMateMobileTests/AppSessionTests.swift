@@ -19,7 +19,7 @@ final class AppSessionTests: XCTestCase {
     }
 
     @MainActor
-    func testInvalidAddressesAreRejected() {
+    func testInvalidAddressesAreRejected() async {
         for address in ["", "example.com", "ftp://example.com", "https://user:secret@example.com",
                         "https://example.com/?token=x", "https://example.com/#fragment"] {
             XCTAssertThrowsError(try APIClient.normalizedServerURL(address), address)
@@ -137,7 +137,7 @@ final class AppSessionTests: XCTestCase {
     }
 
     @MainActor
-    func testUnknownAndFalseVehicleValuesRemainDistinct() throws {
+    func testUnknownAndFalseVehicleValuesRemainDistinct() async throws {
         let vehicle = try vehicles(named: "Unknown").first!
         XCTAssertNil(vehicle.batteryLevel)
         XCTAssertNil(vehicle.locked)

@@ -14,9 +14,15 @@ struct KeychainError: LocalizedError {
 }
 
 struct KeychainStore: CredentialStore {
+    private let service: String
+
+    init(service: String = "com.zwthys.teslamate") {
+        self.service = service
+    }
+
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "com.zwthys.teslamate",
+         kSecAttrService as String: service,
          kSecAttrAccount as String: "apiToken"]
     }
 
