@@ -82,10 +82,10 @@ struct APIClient {
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let wholeSeconds = ISO8601DateFormatter()
         decoder.dateDecodingStrategy = .custom { decoder in
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let wholeSeconds = ISO8601DateFormatter()
             let container = try decoder.singleValueContainer()
             let value = try container.decode(String.self)
             guard let date = fractional.date(from: value) ?? wholeSeconds.date(from: value) else {

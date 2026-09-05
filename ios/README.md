@@ -31,7 +31,7 @@ App 初次启动时填写自己的服务器地址和 `MOBILE_API_TOKEN` 访问�
 
 ```bash
 xcodebuild test -project TeslaMateMobile.xcodeproj -scheme TeslaMateMobile \
-  -destination 'platform=iOS Simulator,id=<模拟器 UUID>' CODE_SIGNING_ALLOWED=NO
+  -destination 'platform=iOS Simulator,id=<模拟器 UUID>' CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES
 ```
 
 仓库根目录 `.github/workflows/build-ios.yml` 会在 iOS 相关 PR、main 推送及手动触发时
