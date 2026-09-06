@@ -47,3 +47,11 @@ xcodebuild test -project TeslaMateMobile.xcodeproj -scheme TeslaMateMobile \
 ## TrollStore IPA
 
 在 Xcode 中选择 Generic iOS Device 并执行 Archive。导出 IPA 时使用你的可用签名配置，再通过 TrollStore 安装。请只在自己拥有和控制的设备上使用。
+
+## 0.3.0 历史车辆模式
+
+车辆页面右上角 → 历史车辆模式。适用于已出售或不再需要实时状态的车辆：
+首页提供历史行程和充电入口，隐藏实时电量、位置与车锁。
+设置按服务器地址和车辆 ID 保存在本机，重新连接同一服务器后保留，可随时关闭。
+该设置不会停止服务器采集或删除记录；离线、休眠和采集失败不会自动开启此模式。
+服务器请求失败仍会明确提示。此版本沿用 0.2.0 的历史接口，无需再次升级后端。

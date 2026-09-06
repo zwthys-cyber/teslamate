@@ -5,21 +5,34 @@ struct RootView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
 
+    @State private var selectedTab = 0
+
     var body: some View {
         Group {
             if !session.isConfigured {
                 NavigationStack { ConnectionView() }
             } else {
-                TabView {
+                TabView(selection: $selectedTab) {
                     NavigationStack {
                         overview
                             .navigationTitle("车辆")
                             .toolbar {
                                 ToolbarItem(placement: .topBarLeading) { VehiclePicker() }
+                                ToolbarItem(placement: .topBarTrailing) {
+                                    if session.selectedVehicle != nil {
+                                        Menu {
+                                            Toggle("历史车辆模式", isOn: Binding(
+                                                get: { session.isHistoricalVehicle },
+                                                set: { session.setHistoricalVehicle($0) }
+                                            ))
+                                        } label: { Image(systemName: "ellipsis.circle") }
+                                        .accessibilityLabel("车辆显示设置")
+                                    }
+                                }
                             }
                             .refreshable { await session.refresh() }
                     }
-                    .tabItem { Label("车辆", systemImage: "car.side") }
+                    .tabItem { Label("车辆", systemImage: "car.side") }.tag(0)
 
                     NavigationStack {
                         if let vehicle = session.selectedVehicle {
@@ -27,7 +40,7 @@ struct RootView: View {
                         } else { noVehicle }
                     }
                     .id("drives-\(session.selectedVehicleID ?? 0)")
-                    .tabItem { Label("行程", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }
+                    .tabItem { Label("行程", systemImage: "point.topleft.down.curvedto.point.bottomright.up") }.tag(1)
 
                     NavigationStack {
                         if let vehicle = session.selectedVehicle {
@@ -35,10 +48,10 @@ struct RootView: View {
                         } else { noVehicle }
                     }
                     .id("charging-\(session.selectedVehicleID ?? 0)")
-                    .tabItem { Label("充电", systemImage: "bolt") }
+                    .tabItem { Label("充电", systemImage: "bolt") }.tag(2)
 
                     NavigationStack { ConnectionView() }
-                        .tabItem { Label("设置", systemImage: "gearshape") }
+                        .tabItem { Label("设置", systemImage: "gearshape") }.tag(3)
                 }
                 .id(session.connectionID)
             }
@@ -58,7 +71,13 @@ struct RootView: View {
                 ProgressView("正在连接车辆…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let vehicle = session.selectedVehicle {
-                VehicleDashboard(vehicle: vehicle).id(vehicle.id)
+                if session.isHistoricalVehicle {
+                    HistoricalVehicleDashboard(vehicle: vehicle,
+                                               showDrives: { selectedTab = 1 },
+                                               showCharging: { selectedTab = 2 })
+                } else {
+                    VehicleDashboard(vehicle: vehicle).id(vehicle.id)
+                }
             } else {
                 ContentUnavailableView {
                     Label(session.errorMessage == nil ? "暂时没有车辆数据" : "无法获取车辆数据", systemImage: "car.side")
@@ -94,7 +113,11 @@ struct RootView: View {
                         }
                     }
                 }
-                Text("车辆采样时间未知，显示的是服务器保存的最近状态。")
+                if session.isHistoricalVehicle {
+                    Text("历史车辆模式 · 上次获取指服务器连接时间。")
+                } else {
+                    Text("车辆采样时间未知，显示的是服务器保存的最近状态。")
+                }
             }
         }
         .font(.caption)

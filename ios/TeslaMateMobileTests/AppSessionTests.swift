@@ -188,6 +188,62 @@ final class AppSessionTests: XCTestCase {
     }
 
     @MainActor
+    func testHistoricalModePersistsPerVehicleAndCanBeDisabled() async throws {
+        let cars = try vehicles(named: "First", id: 1) + vehicles(named: "Second", id: 2)
+        let session = makeSession { _, _ in cars }
+        try await session.connect(serverURL: "https://old.example", token: "token")
+        XCTAssertFalse(session.isHistoricalVehicle)
+        session.setHistoricalVehicle(true)
+        session.selectVehicle(2)
+        XCTAssertFalse(session.isHistoricalVehicle)
+        session.selectVehicle(1)
+        XCTAssertTrue(session.isHistoricalVehicle)
+        let restored = makeSession { _, _ in cars }
+        await restored.refresh()
+        XCTAssertTrue(restored.isHistoricalVehicle)
+        restored.setHistoricalVehicle(false)
+        let disabled = makeSession { _, _ in cars }
+        await disabled.refresh()
+        XCTAssertFalse(disabled.isHistoricalVehicle)
+    }
+
+    @MainActor
+    func testHistoricalModeIsScopedToServerAndSurvivesReconnect() async throws {
+        let cars = try vehicles(named: "Car")
+        let session = makeSession { _, _ in cars }
+        try await session.connect(serverURL: "https://old.example", token: "token")
+        session.setHistoricalVehicle(true)
+        try await session.connect(serverURL: "https://new.example", token: "token")
+        XCTAssertFalse(session.isHistoricalVehicle)
+        try session.disconnect()
+        XCTAssertTrue(session.historicalVehicleIDs.isEmpty)
+        try await session.connect(serverURL: "https://old.example/", token: "token")
+        XCTAssertTrue(session.isHistoricalVehicle)
+    }
+
+    @MainActor
+    func testHistoricalModeDoesNotHideRefreshFailureOrChangeOnFailedConnection() async throws {
+        let cars = try vehicles(named: "Car")
+        var fail = false
+        let session = makeSession { _, _ in
+            if fail { throw APIError.unauthorized }
+            return cars
+        }
+        try await session.connect(serverURL: "https://old.example", token: "token")
+        session.setHistoricalVehicle(true)
+        fail = true
+        await session.refresh()
+        XCTAssertNotNil(session.errorMessage)
+        XCTAssertTrue(session.isHistoricalVehicle)
+        do {
+            try await session.connect(serverURL: "https://new.example", token: "token")
+            XCTFail("Expected connection failure")
+        } catch { }
+        XCTAssertTrue(session.isHistoricalVehicle)
+        XCTAssertEqual(session.serverURL, "https://old.example/")
+    }
+
+    @MainActor
     private func makeSession(fetch: @escaping (String, String) async throws -> [Vehicle]) -> AppSession {
         AppSession(defaults: defaults, credentials: credentials, fetch: fetch)
     }

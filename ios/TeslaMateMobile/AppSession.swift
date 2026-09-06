@@ -7,6 +7,7 @@ final class AppSession {
     private(set) var token = ""
     private(set) var vehicles: [Vehicle] = []
     private(set) var selectedVehicleID: Int?
+    private(set) var historicalVehicleIDs: Set<Int> = []
     private(set) var connectionID = UUID()
     private(set) var isLoading = false
     private(set) var isConnecting = false
@@ -29,6 +30,7 @@ final class AppSession {
         self.fetch = fetch
         selectedVehicleID = defaults.object(forKey: "selectedVehicleID") as? Int
         serverURL = defaults.string(forKey: "serverURL") ?? ""
+        loadHistoricalVehicles()
         do { token = try self.credentials.read() ?? "" }
         catch { errorMessage = error.localizedDescription }
     }
@@ -36,6 +38,25 @@ final class AppSession {
     var isConfigured: Bool { !serverURL.isEmpty && !token.isEmpty }
 
     var selectedVehicle: Vehicle? { vehicles.first { $0.id == selectedVehicleID } }
+
+    var isHistoricalVehicle: Bool {
+        selectedVehicleID.map { historicalVehicleIDs.contains($0) } ?? false
+    }
+
+    // A local display preference, never inferred from an upstream connection failure.
+    func setHistoricalVehicle(_ enabled: Bool) {
+        guard let id = selectedVehicle?.id else { return }
+        if enabled { historicalVehicleIDs.insert(id) }
+        else { historicalVehicleIDs.remove(id) }
+        var saved = defaults.dictionary(forKey: "historicalVehiclesByServer") as? [String: [Int]] ?? [:]
+        saved[serverURL] = historicalVehicleIDs.sorted()
+        defaults.set(saved, forKey: "historicalVehiclesByServer")
+    }
+
+    private func loadHistoricalVehicles() {
+        let saved = defaults.dictionary(forKey: "historicalVehiclesByServer") as? [String: [Int]] ?? [:]
+        historicalVehicleIDs = Set(saved[serverURL] ?? [])
+    }
 
     func selectVehicle(_ id: Int) {
         guard vehicles.contains(where: { $0.id == id }) else { return }
@@ -72,6 +93,7 @@ final class AppSession {
         connectionID = UUID()
         if self.serverURL != normalized || self.token != trimmedToken { selectedVehicleID = nil }
         self.serverURL = normalized
+        loadHistoricalVehicles()
         self.token = trimmedToken
         vehicles = result
         reconcileSelection()
@@ -86,6 +108,7 @@ final class AppSession {
         connectionAttempt = UUID()
         defaults.removeObject(forKey: "serverURL")
         serverURL = ""
+        historicalVehicleIDs = []
         token = ""
         vehicles = []
         selectedVehicleID = nil
