@@ -4,8 +4,15 @@ defmodule TeslaMateWeb.MobileApiController do
   import Ecto.Query
 
   alias TeslaMate.{Log, Repo, Vehicles}
+  alias TeslaMateWeb.MobileHistory
   alias TeslaMate.Locations.GeoFence
   alias TeslaMate.Log.{Charge, ChargingProcess, Drive, Position, Update}
+
+  plug :validate_vehicle
+       when action in [:drives, :charging, :statistics, :updates, :battery_health]
+
+  plug :load_record when action in [:drive, :charge]
+  plug :validate_history when action in [:drives, :charging]
 
   @fields ~w(
     state since healthy latitude longitude heading battery_level usable_battery_level
@@ -38,76 +45,81 @@ defmodule TeslaMateWeb.MobileApiController do
     json(conn, %{data: data, generated_at: DateTime.utc_now()})
   end
 
-  def drives(conn, params) do
-    car_id = car_id(params)
-    limit = page_limit(params)
-
-    data =
+  def drives(conn, _params) do
+    query =
       Drive
-      |> where([d], d.car_id == ^car_id)
-      |> order_by([d], desc: d.start_date)
-      |> limit(^limit)
-      |> preload([:start_address, :end_address, :start_geofence, :end_geofence, :start_position, :end_position])
-      |> Repo.all()
-      |> Enum.map(&drive_json/1)
+      |> where([d], d.car_id == ^conn.assigns.mobile_car_id)
+      |> preload([
+        :start_address,
+        :end_address,
+        :start_geofence,
+        :end_geofence,
+        :start_position,
+        :end_position
+      ])
 
-    json(conn, %{data: data})
+    json(conn, MobileHistory.page(query, conn.assigns.history_options, &drive_json/1))
   end
 
-  def drive(conn, %{"id" => id}) do
+  def drive(conn, _params) do
     drive =
-      Drive
-      |> Repo.get!(id)
-      |> Repo.preload([:start_address, :end_address, :start_geofence, :end_geofence, :start_position, :end_position])
+      Repo.preload(conn.assigns.mobile_record, [
+        :start_address,
+        :end_address,
+        :start_geofence,
+        :end_geofence,
+        :start_position,
+        :end_position
+      ])
 
-    positions =
+    {positions, sampling} =
       Position
       |> where([p], p.drive_id == ^drive.id)
-      |> order_by([p], asc: p.date)
-      |> select([p], %{latitude: p.latitude, longitude: p.longitude, speed: p.speed, date: p.date})
-      |> Repo.all()
-      |> Enum.map(&json_map/1)
-
-    json(conn, %{data: Map.put(drive_json(drive), :positions, positions)})
-  end
-
-  def charging(conn, params) do
-    car_id = car_id(params)
+      |> MobileHistory.samples(Position, [:latitude, :longitude, :speed, :date])
 
     data =
-      ChargingProcess
-      |> where([c], c.car_id == ^car_id)
-      |> order_by([c], desc: c.start_date)
-      |> limit(^page_limit(params))
-      |> preload([:address, :geofence, :position])
-      |> Repo.all()
-      |> Enum.map(&charge_json/1)
+      drive_json(drive)
+      |> Map.put(:positions, Enum.map(positions, &json_map/1))
+      |> Map.put(:sampling, sampling)
 
     json(conn, %{data: data})
   end
 
-  def charge(conn, %{"id" => id}) do
-    process = ChargingProcess |> Repo.get!(id) |> Repo.preload([:address, :geofence, :position])
+  def charging(conn, _params) do
+    query =
+      ChargingProcess
+      |> where([c], c.car_id == ^conn.assigns.mobile_car_id)
+      |> preload([:address, :geofence, :position])
 
-    samples =
-      Charge
-      |> where([c], c.charging_process_id == ^process.id)
-      |> order_by([c], asc: c.date)
-      |> select([c], %{
-        date: c.date,
-        battery_level: c.battery_level,
-        charger_power: c.charger_power,
-        energy_added_kwh: c.charge_energy_added,
-        outside_temp: c.outside_temp
-      })
-      |> Repo.all()
-      |> Enum.map(&json_map/1)
-
-    json(conn, %{data: Map.put(charge_json(process), :samples, samples)})
+    json(conn, MobileHistory.page(query, conn.assigns.history_options, &charge_json/1))
   end
 
-  def statistics(conn, params) do
-    car_id = car_id(params)
+  def charge(conn, _params) do
+    process = Repo.preload(conn.assigns.mobile_record, [:address, :geofence, :position])
+
+    {samples, sampling} =
+      Charge
+      |> where([c], c.charging_process_id == ^process.id)
+      |> MobileHistory.samples(Charge, [
+        :date,
+        :battery_level,
+        :charger_power,
+        :charge_energy_added,
+        :outside_temp
+      ])
+
+    samples =
+      Enum.map(samples, fn sample ->
+        {energy, sample} = Map.pop(sample, :charge_energy_added)
+        sample |> Map.put(:energy_added_kwh, energy) |> json_map()
+      end)
+
+    data = charge_json(process) |> Map.put(:samples, samples) |> Map.put(:sampling, sampling)
+    json(conn, %{data: data})
+  end
+
+  def statistics(conn, _params) do
+    car_id = conn.assigns.mobile_car_id
     cutoff = DateTime.add(DateTime.utc_now(), -370, :day)
 
     drive_stats =
@@ -193,21 +205,26 @@ defmodule TeslaMateWeb.MobileApiController do
     json(conn, %{data: data})
   end
 
-  def updates(conn, params) do
+  def updates(conn, _params) do
     data =
       Update
-      |> where([u], u.car_id == ^car_id(params))
+      |> where([u], u.car_id == ^conn.assigns.mobile_car_id)
       |> order_by([u], desc: u.start_date)
       |> limit(100)
-      |> select([u], %{id: u.id, start_date: u.start_date, end_date: u.end_date, version: u.version})
+      |> select([u], %{
+        id: u.id,
+        start_date: u.start_date,
+        end_date: u.end_date,
+        version: u.version
+      })
       |> Repo.all()
       |> Enum.map(&json_map/1)
 
     json(conn, %{data: data})
   end
 
-  def battery_health(conn, params) do
-    car_id = car_id(params)
+  def battery_health(conn, _params) do
+    car_id = conn.assigns.mobile_car_id
 
     data =
       Position
@@ -222,7 +239,11 @@ defmodule TeslaMateWeb.MobileApiController do
       |> select([p], %{
         date: fragment("to_char(date_trunc('day', ?), 'YYYY-MM-DD')", p.date),
         full_range_km:
-          fragment("AVG((?::float / NULLIF(?, 0)) * 100)", p.rated_battery_range_km, p.battery_level),
+          fragment(
+            "AVG((?::float / NULLIF(?, 0)) * 100)",
+            p.rated_battery_range_km,
+            p.battery_level
+          ),
         odometer: avg(p.odometer),
         samples: count(p.id)
       })
@@ -235,6 +256,7 @@ defmodule TeslaMateWeb.MobileApiController do
   defp drive_json(drive) do
     json_map(%{
       id: drive.id,
+      car_id: drive.car_id,
       start_date: drive.start_date,
       end_date: drive.end_date,
       duration_min: drive.duration_min,
@@ -257,6 +279,7 @@ defmodule TeslaMateWeb.MobileApiController do
   defp charge_json(charge) do
     json_map(%{
       id: charge.id,
+      car_id: charge.car_id,
       start_date: charge.start_date,
       end_date: charge.end_date,
       duration_min: charge.duration_min,
@@ -279,16 +302,72 @@ defmodule TeslaMateWeb.MobileApiController do
   defp coordinate(nil, _field), do: nil
   defp coordinate(struct, field), do: Map.get(struct, field)
 
-  defp car_id(%{"car_id" => id}), do: String.to_integer(id)
-  defp car_id(_), do: Log.list_cars() |> List.first() |> Map.fetch!(:id)
+  defp validate_vehicle(conn, _opts) do
+    result =
+      case conn.params do
+        %{"car_id" => value} ->
+          case positive_id(value, 32_767) do
+            {:ok, id} -> {:ok, Repo.get(Log.Car, id)}
+            :error -> :error
+          end
 
-  defp page_limit(%{"limit" => value}) do
-    value |> String.to_integer() |> min(500) |> max(1)
-  rescue
-    _ -> 100
+        _ ->
+          {:ok, Log.list_cars() |> List.first()}
+      end
+
+    case result do
+      {:ok, %Log.Car{id: id}} -> assign(conn, :mobile_car_id, id)
+      {:ok, nil} -> api_error(conn, :not_found, "vehicle_not_found")
+      :error -> api_error(conn, :bad_request, "invalid_car_id")
+    end
   end
 
-  defp page_limit(_), do: 100
+  defp validate_history(conn, _opts) do
+    case MobileHistory.options(conn.params) do
+      {:ok, options} -> assign(conn, :history_options, options)
+      {:error, error} -> api_error(conn, :bad_request, error)
+    end
+  end
+
+  defp load_record(conn, _opts) do
+    with {:ok, id} <- positive_id(conn.params["id"], 2_147_483_647) do
+      schema = if action_name(conn) == :drive, do: Drive, else: ChargingProcess
+      query = where(schema, [r], r.id == ^id)
+
+      case conn.params do
+        %{"car_id" => value} ->
+          case positive_id(value, 32_767) do
+            {:ok, car_id} -> assign_record(conn, where(query, [r], r.car_id == ^car_id))
+            :error -> api_error(conn, :bad_request, "invalid_car_id")
+          end
+
+        _ ->
+          assign_record(conn, query)
+      end
+    else
+      _ -> api_error(conn, :bad_request, "invalid_id")
+    end
+  end
+
+  defp assign_record(conn, query) do
+    case Repo.one(query) do
+      nil -> api_error(conn, :not_found, "record_not_found")
+      record -> assign(conn, :mobile_record, record)
+    end
+  end
+
+  defp positive_id(value, maximum) when is_binary(value) do
+    case Integer.parse(value) do
+      {id, ""} when id > 0 and id <= maximum -> {:ok, id}
+      _ -> :error
+    end
+  end
+
+  defp positive_id(_, _maximum), do: :error
+
+  defp api_error(conn, status, error) do
+    conn |> put_status(status) |> json(%{error: error}) |> halt()
+  end
 
   defp json_map(map), do: Map.new(map, fn {key, value} -> {key, json_value(value)} end)
 

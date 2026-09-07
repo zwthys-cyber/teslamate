@@ -1,0 +1,59 @@
+name: Mobile API checks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'config/**'
+      - 'priv/repo/migrations/**'
+      - 'test/**'
+      - 'mix.*'
+      - '.github/workflows/mobile-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'config/**'
+      - 'priv/repo/migrations/**'
+      - 'test/**'
+      - 'mix.*'
+      - '.github/workflows/mobile-api.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MIX_ENV: test
+      ELIXIR_ASSERT_TIMEOUT: 1000
+    services:
+      database:
+        image: postgres:18-trixie
+        ports: ['5432:5432']
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-elixir-and-cache-deps
+        with:
+          mix-env: test
+      - name: Check mobile API formatting
+        run: >-
+          mix format --check-formatted
+          lib/teslamate_web/mobile_history.ex
+          lib/teslamate_web/controllers/mobile_api_controller.ex
+          lib/teslamate_web/plugs/mobile_api_auth.ex
+          test/teslamate_web/controllers/mobile_api_controller_test.exs
+          priv/repo/migrations/20260905090000_index_mobile_history.exs
+      - name: Test mobile API and migrations
+        run: mix test test/teslamate_web/controllers/mobile_api_controller_test.exs --warnings-as-errors

@@ -4,8 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths-ignore:
-      - "README.md"
+    paths: ["ios/**", ".github/workflows/build-ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/build-ios.yml"]
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -14,7 +19,10 @@ jobs:
   build:
     name: Build unsigned IPA
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ios
 
     steps:
       - name: Checkout
@@ -25,6 +33,27 @@ jobs:
 
       - name: Generate Xcode project
         run: xcodegen generate
+
+      - name: Run iOS tests
+        run: |
+          set -o pipefail
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for runtime, group in devices.items() if "iOS" in runtime for d in group if d["name"].startswith("iPhone")))')
+          xcodebuild test \
+            -project TeslaMateMobile.xcodeproj \
+            -scheme TeslaMateMobile \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -resultBundlePath "$RUNNER_TEMP/TestResults.xcresult" \
+            CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES | tee "$RUNNER_TEMP/xcodebuild-test.log"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/TestResults.xcresult
+            ${{ runner.temp }}/xcodebuild-test.log
+          if-no-files-found: ignore
 
       - name: Build for iPhone
         run: |
