@@ -6,12 +6,25 @@ struct ConnectionView: View {
     @State private var serverURL = ""
     @State private var token = ""
     @State private var errorMessage: String?
+    @State private var showingDisconnect = false
     @State private var connectionTask: Task<Void, Never>?
 
     var body: some View {
         Form {
+            Section {
+                VStack(alignment: .leading, spacing: 14) {
+                    SymbolTile(symbol: "network")
+                    Text(session.isConfigured ? "管理你的连接" : "连接你的 TeslaMate")
+                        .font(.title2.bold())
+                    Text("让车辆记录，随你同行。使用自己的服务器，安全访问行程与充电历史。")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 12)
+            }
+
             Section("TeslaMate 服务器") {
-                TextField("https://your-server.example/", text: $serverURL)
+                TextField("服务器地址，例如 https://…", text: $serverURL)
+                    .accessibilityLabel("服务器地址")
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
@@ -35,9 +48,12 @@ struct ConnectionView: View {
                 } label: {
                     HStack {
                         if session.isConnecting { ProgressView() }
-                        Text(session.isConnecting ? "正在验证连接…" : "验证并保存")
+                        Text(session.isConnecting ? "正在验证连接…" : "验证并保存").fontWeight(.semibold)
                     }
+                    .frame(maxWidth: .infinity, minHeight: 44)
                 }
+                .buttonStyle(.borderedProminent)
+                .listRowBackground(Color.clear)
                 .disabled(serverURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                           token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isConnecting)
             } footer: {
@@ -49,16 +65,20 @@ struct ConnectionView: View {
             if session.isConfigured {
                 Section {
                     Button("断开连接并清除凭据", role: .destructive) {
-                        do {
-                            try session.disconnect()
-                            dismiss()
-                        } catch { errorMessage = error.localizedDescription }
+                        showingDisconnect = true
                     }
                     .disabled(session.isConnecting)
                 }
             }
         }
         .navigationTitle("连接设置")
+        .confirmationDialog("断开当前服务器？", isPresented: $showingDisconnect, titleVisibility: .visible) {
+            Button("断开并清除凭据", role: .destructive) {
+                do { try session.disconnect(); dismiss() }
+                catch { errorMessage = error.localizedDescription }
+            }
+            Button("取消", role: .cancel) { }
+        } message: { Text("本机访问令牌将被清除，服务器上的历史记录不受影响。") }
         .interactiveDismissDisabled(session.isConnecting)
         .onAppear {
             serverURL = session.serverURL
