@@ -289,10 +289,10 @@ defmodule TeslaMateWeb.MobileApiControllerTest do
 
     for {owner, distance, ended} <- [
           {car, nil, true},
-          {car, Decimal.new("0"), true},
-          {car, Decimal.new("12.5"), true},
-          {car, Decimal.new("999"), false},
-          {other, Decimal.new("999"), true}
+          {car, 0.0, true},
+          {car, 12.5, true},
+          {car, 999.0, false},
+          {other, 999.0, true}
         ] do
       record = history_record(TeslaMate.Log.Drive, owner, date)
 

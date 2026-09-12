@@ -19,7 +19,7 @@ struct VehicleStatisticsView: View {
                     metric("充电次数", value: "\(statistics.charging.count)", symbol: "bolt.fill")
                     metric("已记录补能", value: statistics.energy, symbol: "battery.100percent")
                 }
-                Text("仅汇总已记录的数值，不包含进行中的记录。缺少统计口径时显示横线。")
+                Text("仅汇总已记录的数值，不包含进行中的记录。缺少数值时显示横线。")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             if loading { ProgressView("正在读取统计…") }
