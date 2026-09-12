@@ -50,12 +50,13 @@ struct RootView: View {
                     .id("charging-\(session.selectedVehicleID ?? 0)")
                     .tabItem { Label("充电", systemImage: "bolt") }.tag(2)
 
-                    NavigationStack { ConnectionView() }
+                    NavigationStack { SettingsView() }
                         .tabItem { Label("设置", systemImage: "gearshape") }.tag(3)
                 }
                 .id(session.connectionID)
             }
         }
+        .tint(AppDesign.accent)
         .task { await session.refresh() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await session.refresh() } }
@@ -72,9 +73,9 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let vehicle = session.selectedVehicle {
                 if session.isHistoricalVehicle {
-                    HistoricalVehicleDashboard(vehicle: vehicle,
+                    HistoricalVehicleDashboard(vehicle: vehicle, client: client,
                                                showDrives: { selectedTab = 1 },
-                                               showCharging: { selectedTab = 2 })
+                                               showCharging: { selectedTab = 2 }).id(vehicle.id)
                 } else {
                     VehicleDashboard(vehicle: vehicle).id(vehicle.id)
                 }
@@ -105,18 +106,19 @@ struct RootView: View {
                     .disabled(session.isLoading)
             }
             if let receivedAt = session.lastReceivedAt {
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("上次获取：\(receivedAt.formatted(date: .omitted, time: .standard))")
-                        if context.date.timeIntervalSince(receivedAt) > 120 {
-                            Text("已有一段时间未刷新，下拉获取最新记录。")
-                        }
+                DisclosureGroup {
+                    Text(session.isHistoricalVehicle
+                         ? "历史车辆模式不会展示实时状态。"
+                         : "车辆采样时间未知，当前显示服务器保存的最近状态。")
+                    Text("获取时间不代表车辆采样时间。下拉页面可重新获取。")
+                } label: {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                        Text("上次获取")
+                        Text(receivedAt, style: .relative).monospacedDigit()
+                        Spacer()
+                        if session.isLoading { ProgressView().controlSize(.mini) }
                     }
-                }
-                if session.isHistoricalVehicle {
-                    Text("历史车辆模式 · 上次获取指服务器连接时间。")
-                } else {
-                    Text("车辆采样时间未知，显示的是服务器保存的最近状态。")
                 }
             }
         }
@@ -124,7 +126,8 @@ struct RootView: View {
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
+        .background(AppDesign.background)
     }
 }
 

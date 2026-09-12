@@ -23,6 +23,11 @@ private struct RecordDetailView<Item: HistoryEntry, Content: View>: View {
                 }
             }
             if let record {
+                Section {
+                    RecordSummaryCard(record: record)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
                 Section("时间") {
                     LabeledContent("开始", value: record.startDate.formatted(date: .abbreviated, time: .shortened))
                     LabeledContent("结束", value: record.endDate?.formatted(date: .abbreviated, time: .shortened) ?? "进行中")
@@ -32,6 +37,7 @@ private struct RecordDetailView<Item: HistoryEntry, Content: View>: View {
                 ProgressView("正在加载详情…")
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -51,6 +57,27 @@ private struct RecordDetailView<Item: HistoryEntry, Content: View>: View {
             if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+private struct RecordSummaryCard<Item: HistoryEntry>: View {
+    let record: Item
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Label(Item.resource == "drives" ? "行程回顾" : "充电回顾",
+                  systemImage: Item.resource == "drives" ? "steeringwheel" : "bolt.fill")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.8))
+            Text(record.primaryValue).font(.largeTitle.bold()).monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
+            Label(record.secondaryValue, systemImage: "clock")
+                .font(.subheadline)
+            if record.endDate == nil { Text("进行中 · 数据尚未完整").font(.footnote) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(24)
+        .foregroundStyle(.white)
+        .background(AppDesign.hero, in: .rect(cornerRadius: 24))
+        .accessibilityElement(children: .combine)
     }
 }
 

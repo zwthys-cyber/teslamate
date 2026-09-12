@@ -55,6 +55,21 @@ jobs:
             ${{ runner.temp }}/xcodebuild-test.log
           if-no-files-found: ignore
 
+      - name: Export interface screenshots
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/TestResults.xcresult" ]; then
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/TestResults.xcresult" --output-path "$RUNNER_TEMP/UIScreenshots"
+          fi
+
+      - name: Upload interface screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-interface-screenshots-${{ github.sha }}
+          path: ${{ runner.temp }}/UIScreenshots
+          if-no-files-found: ignore
+
       - name: Build for iPhone
         run: |
           set -o pipefail

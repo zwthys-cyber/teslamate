@@ -3,6 +3,7 @@ import SwiftUI
 
 struct VehicleDashboard: View {
     let vehicle: Vehicle
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var coordinate: CLLocationCoordinate2D? {
         guard let latitude = vehicle.latitude, let longitude = vehicle.longitude else { return nil }
@@ -12,6 +13,7 @@ struct VehicleDashboard: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                VehicleIdentityCard(vehicle: vehicle, historical: false)
                 header
                 if vehicle.healthy == false {
                     VStack(alignment: .leading, spacing: 8) {
@@ -37,16 +39,18 @@ struct VehicleDashboard: View {
                     .frame(height: 230)
                     .clipShape(.rect(cornerRadius: 18))
                 }
+                FeatureHeading(title: "车辆状态", subtitle: "服务器保存的最近数据，未知值以横线显示")
                 metrics
             }
-            .padding()
+            .padding(20)
         }
+        .background(AppDesign.background)
     }
 
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(vehicle.name).font(.largeTitle.bold())
+                Text("最近状态").font(.headline)
                 Text([vehicle.model, vehicle.trimBadging, "VIN \(vehicle.vinSuffix)"].compactMap { $0 }.joined(separator: " · "))
                     .font(.subheadline).foregroundStyle(.secondary)
                 Label(stateName, systemImage: stateIcon)
@@ -66,7 +70,7 @@ struct VehicleDashboard: View {
     }
 
     private var metrics: some View {
-        LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 12) {
+        LazyVGrid(columns: typeSize.isAccessibilitySize ? [.init(.flexible())] : [.init(.flexible()), .init(.flexible())], spacing: 12) {
             MetricCard(title: "预估续航", value: distance(vehicle.estBatteryRangeKm), icon: "road.lanes")
             MetricCard(title: "典型续航", value: distance(vehicle.idealBatteryRangeKm), icon: "bolt.fill")
             MetricCard(title: "车内温度", value: temperature(vehicle.insideTemp), icon: "thermometer.medium")
@@ -94,52 +98,105 @@ private struct MetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: icon).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.headline).lineLimit(1).minimumScaleFactor(0.75)
+            Text(value).font(.title3.weight(.semibold)).monospacedDigit().fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .padding(14)
-        .background(.thinMaterial, in: .rect(cornerRadius: 16))
+        .background(AppDesign.surface, in: .rect(cornerRadius: 18))
     }
 }
 
 
+@MainActor
 struct HistoricalVehicleDashboard: View {
     let vehicle: Vehicle
+    let client: APIClient
     let showDrives: () -> Void
     let showCharging: () -> Void
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("历史车辆", systemImage: "archivebox")
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                    Text(vehicle.name).font(.largeTitle.bold())
-                    Text([vehicle.model, vehicle.trimBadging, "VIN \(vehicle.vinSuffix)"].compactMap { $0 }.joined(separator: " · "))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("记录依然在这里").font(.title2.bold())
-                    Text("浏览服务器已保存的行程、路线和充电记录。此模式不展示实时电量、车锁或位置。")
-                        .foregroundStyle(.secondary)
-                }
+                VehicleIdentityCard(vehicle: vehicle, historical: true)
+                FeatureHeading(title: "每段旅程，都有记录", subtitle: "回看走过的路线与每一次充电")
                 VStack(spacing: 12) {
-                    Button(action: showDrives) {
-                        Label("查看历史行程", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Button(action: showCharging) {
-                        Label("查看充电记录", systemImage: "bolt")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
+                    ActionCard(title: "行程记录", subtitle: "路线、里程与驾驶时间",
+                               symbol: "point.topleft.down.curvedto.point.bottomright.up", action: showDrives)
+                    ActionCard(title: "充电记录", subtitle: "补能、电量与功率曲线",
+                               symbol: "bolt.fill", color: .teal, action: showCharging)
                 }
-                Text("这是本机的显示设置，不会删除记录或停止服务器采集。可随时在右上角关闭历史车辆模式。")
-                    .font(.footnote).foregroundStyle(.secondary)
+                VehicleStatisticsView(client: client, carID: vehicle.id)
+                RecentHistoryView(client: client, carID: vehicle.id)
+                InlineNotice(title: "只看历史，从容回顾", message: "此模式隐藏实时状态，保留服务器上的记录。可在车辆菜单或设置中关闭，不会改变服务器采集。", symbol: "archivebox")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
+            .padding(20)
         }
+        .background(AppDesign.background)
+    }
+}
+
+@MainActor
+private struct RecentHistoryView: View {
+    let client: APIClient
+    let carID: Int
+    @State private var drives: HistoryStore<DriveRecord>
+    @State private var charges: HistoryStore<ChargingRecord>
+
+    init(client: APIClient, carID: Int) {
+        self.client = client
+        self.carID = carID
+        _drives = State(initialValue: HistoryStore(carID: carID) { filter, cursor in
+            try await client.history(carID: carID, filter: filter, cursor: cursor)
+        })
+        _charges = State(initialValue: HistoryStore(carID: carID) { filter, cursor in
+            try await client.history(carID: carID, filter: filter, cursor: cursor)
+        })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            FeatureHeading(title: "最近记录", subtitle: "按开始时间展示最近一次行程和充电")
+            recentDrive
+            recentCharge
+        }
+        .task {
+            async let loadDrives: Void = drives.reload(filter: .all)
+            async let loadCharges: Void = charges.reload(filter: .all)
+            _ = await (loadDrives, loadCharges)
+        }
+    }
+
+    private var recentDrive: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("最近行程", systemImage: "steeringwheel").font(.subheadline.weight(.semibold)).foregroundStyle(.blue)
+            if let record = drives.items.first {
+                NavigationLink {
+                    DriveDetailView(client: client, carID: carID, id: record.id)
+                } label: { HistoryRow(item: record) }.buttonStyle(.plain)
+            } else if drives.isLoading { ProgressView("正在加载行程…") }
+            else if let error = drives.errorMessage {
+                Text(error).font(.footnote).foregroundStyle(.secondary)
+                Button("重新加载行程") { Task { await drives.retry() } }
+            } else { Text("还没有行程记录").foregroundStyle(.secondary) }
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppDesign.surface, in: .rect(cornerRadius: 20))
+    }
+
+    private var recentCharge: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("最近充电", systemImage: "bolt.fill").font(.subheadline.weight(.semibold)).foregroundStyle(.teal)
+            if let record = charges.items.first {
+                NavigationLink {
+                    ChargingDetailView(client: client, carID: carID, id: record.id)
+                } label: { HistoryRow(item: record) }.buttonStyle(.plain)
+            } else if charges.isLoading { ProgressView("正在加载充电…") }
+            else if let error = charges.errorMessage {
+                Text(error).font(.footnote).foregroundStyle(.secondary)
+                Button("重新加载充电") { Task { await charges.retry() } }
+            } else { Text("还没有充电记录").foregroundStyle(.secondary) }
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppDesign.surface, in: .rect(cornerRadius: 20))
     }
 }

@@ -280,6 +280,48 @@ defmodule TeslaMateWeb.MobileApiControllerTest do
              body["data"]["samples"]
   end
 
+  test "statistics count completed records and distinguish missing values from zero", %{
+    conn: conn
+  } do
+    car = history_car()
+    other = history_car()
+    date = ~U[2026-09-01 08:00:00.000000Z]
+
+    for {owner, distance, ended} <- [
+          {car, nil, true},
+          {car, Decimal.new("0"), true},
+          {car, Decimal.new("12.5"), true},
+          {car, Decimal.new("999"), false},
+          {other, Decimal.new("999"), true}
+        ] do
+      record = history_record(TeslaMate.Log.Drive, owner, date)
+
+      record
+      |> Ecto.Changeset.change(distance: distance, end_date: if(ended, do: date))
+      |> TeslaMate.Repo.update!()
+    end
+
+    for energy <- [nil, Decimal.new("0")] do
+      record = history_record(TeslaMate.Log.ChargingProcess, car, date)
+
+      record
+      |> Ecto.Changeset.change(charge_energy_added: energy, end_date: date)
+      |> TeslaMate.Repo.update!()
+    end
+
+    response = get(conn, "/api/mobile/v1/statistics", %{"car_id" => to_string(car.id)})
+    data = json_response(response, 200)["data"]
+    assert data["car_id"] == car.id
+    assert data["scope"] == "completed_records"
+    assert data["driving"]["count"] == 3
+    assert data["driving"]["distance_km"] == 12.5
+    assert data["driving"]["distance_recorded_count"] == 2
+    assert data["charging"]["count"] == 2
+    assert data["charging"]["energy_recorded_count"] == 1
+    assert data["charging"]["cost_recorded_count"] == 0
+    assert get_resp_header(response, "cache-control") == ["no-store"]
+  end
+
   defp history_types,
     do: [{"drives", TeslaMate.Log.Drive}, {"charging", TeslaMate.Log.ChargingProcess}]
 

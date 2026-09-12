@@ -21,9 +21,30 @@ struct HistoryListView<Item: HistoryEntry>: View {
     var body: some View {
         List {
             Section {
-                Button { showingFilter = true } label: {
-                    Label(filterDescription, systemImage: "calendar")
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 14) {
+                        SymbolTile(symbol: Item.resource == "drives" ? "steeringwheel" : "bolt.fill",
+                                   color: Item.resource == "drives" ? .blue : .teal)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(Item.resource == "drives" ? "每段旅程，清晰可见" : "每次补能，心中有数").font(.headline)
+                            Text("已加载 \(store.items.count) 条记录")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                    Button { showingFilter = true } label: {
+                        HStack {
+                            Label(filterDescription, systemImage: "calendar")
+                            Spacer()
+                            Image(systemName: "slider.horizontal.3")
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .padding(12)
+                        .background(AppDesign.accent.opacity(0.08), in: .rect(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("筛选日期，\(filterDescription)")
                 }
+                .padding(.vertical, 8)
             }
             if let error = store.errorMessage {
                 Section {
@@ -42,15 +63,17 @@ struct HistoryListView<Item: HistoryEntry>: View {
                                            description: Text("这辆车在所选时间内没有记录，可以调整日期范围。"))
                 }
             } else {
-                Section {
-                    ForEach(store.items, id: \.id) { item in
-                        NavigationLink {
-                            if Item.resource == DriveRecord.resource {
-                                DriveDetailView(client: client, carID: carID, id: item.id)
-                            } else {
-                                ChargingDetailView(client: client, carID: carID, id: item.id)
-                            }
-                        } label: { HistoryRow(item: item) }
+                ForEach(months, id: \.self) { month in
+                    Section(month.formatted(.dateTime.year().month(.wide))) {
+                        ForEach(records(in: month), id: \.id) { item in
+                            NavigationLink {
+                                if Item.resource == DriveRecord.resource {
+                                    DriveDetailView(client: client, carID: carID, id: item.id)
+                                } else {
+                                    ChargingDetailView(client: client, carID: carID, id: item.id)
+                                }
+                            } label: { HistoryRow(item: item) }
+                        }
                     }
                 }
                 Section {
@@ -65,18 +88,28 @@ struct HistoryListView<Item: HistoryEntry>: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle(title)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { VehiclePicker() }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("筛选日期", systemImage: "line.3.horizontal.decrease.circle") { showingFilter = true }
-            }
         }
         .sheet(isPresented: $showingFilter) {
             HistoryDateFilterView(filter: filter) { filter = $0 }
         }
         .task(id: filter) { await store.reload(filter: filter) }
         .refreshable { await store.reload(filter: filter) }
+    }
+
+    private var months: [Date] {
+        Array(Set(store.items.map { monthStart($0.startDate) })).sorted(by: >)
+    }
+
+    private func monthStart(_ date: Date) -> Date {
+        Calendar.current.dateInterval(of: .month, for: date)?.start ?? date
+    }
+
+    private func records(in month: Date) -> [Item] {
+        store.items.filter { monthStart($0.startDate) == month }
     }
 
     private var filterDescription: String {
@@ -86,27 +119,42 @@ struct HistoryListView<Item: HistoryEntry>: View {
     }
 }
 
-private struct HistoryRow<Item: HistoryEntry>: View {
+struct HistoryRow<Item: HistoryEntry>: View {
     let item: Item
+    private var isDrive: Bool { Item.resource == "drives" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(item.startDate.formatted(date: .abbreviated, time: .shortened))
-                .font(.caption).foregroundStyle(.secondary)
-            Text(item.title).font(.headline)
-            Label(item.subtitle, systemImage: Item.resource == "drives" ? "arrow.down" : "battery.100percent")
-                .font(.subheadline).foregroundStyle(.secondary)
-            ViewThatFits(in: .horizontal) {
-                HStack { Text(item.primaryValue); Spacer(); Text(item.secondaryValue) }
-                VStack(alignment: .leading, spacing: 4) { Text(item.primaryValue); Text(item.secondaryValue) }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(item.startDate.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if item.endDate == nil {
+                    Text("进行中").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                }
             }
-            .font(.subheadline.monospacedDigit())
-            if item.endDate == nil {
-                Text("进行中，记录尚未结束").font(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                Label(item.title, systemImage: isDrive ? "circle.fill" : "mappin.circle.fill")
+                    .font(.headline).foregroundStyle(.primary)
+                Label(item.subtitle, systemImage: isDrive ? "flag.checkered" : "battery.100percent")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 20) { primary; secondary }
+                VStack(alignment: .leading, spacing: 8) { primary; secondary }
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 12)
         .accessibilityElement(children: .combine)
+    }
+
+    private var primary: some View {
+        Text(item.primaryValue).font(.title3.weight(.semibold)).monospacedDigit()
+            .foregroundStyle(isDrive ? AppDesign.accent : AppDesign.charging)
+    }
+    private var secondary: some View {
+        Label(item.secondaryValue, systemImage: "clock")
+            .font(.subheadline).foregroundStyle(.secondary)
     }
 }
 
