@@ -134,10 +134,19 @@ struct HistoryRow<Item: HistoryEntry>: View {
                 }
             }
             VStack(alignment: .leading, spacing: 10) {
-                Label(item.title, systemImage: isDrive ? "circle.fill" : "mappin.circle.fill")
-                    .font(.headline).foregroundStyle(.primary)
-                Label(item.subtitle, systemImage: isDrive ? "flag.checkered" : "battery.100percent")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: isDrive ? "circle.fill" : "mappin.circle.fill")
+                        .font(.system(size: isDrive ? 7 : 14)).frame(width: 16)
+                        .foregroundStyle(isDrive ? AppDesign.accent : AppDesign.charging)
+                        .accessibilityHidden(true)
+                    Text(item.title).font(.headline).foregroundStyle(.primary)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: isDrive ? "flag.checkered" : "battery.100percent")
+                        .font(.system(size: 12)).frame(width: 16).accessibilityHidden(true)
+                    Text(item.subtitle).font(.subheadline)
+                }
+                .foregroundStyle(.secondary)
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 20) { primary; secondary }

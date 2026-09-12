@@ -42,10 +42,21 @@ final class InterfaceTests: XCTestCase {
         capture("08-settings-large-text", app: app)
     }
 
+    func testOverviewStatisticsAndRecentRecords() {
+        let app = launch()
+        XCTAssertTrue(app.buttons["行程记录"].waitForExistence(timeout: 15))
+        app.swipeUp()
+        XCTAssertTrue(app.staticTexts["已记录里程"].waitForExistence(timeout: 10))
+        capture("09-overview-statistics", app: app)
+        app.swipeUp()
+        XCTAssertTrue(app.staticTexts["最近记录"].waitForExistence(timeout: 10))
+        capture("10-recent-records", app: app)
+    }
+
     private func launch(extra: [String] = []) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--ui-preview"] + extra
+        app.launchArguments = ["--ui-preview", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"] + extra
         app.launch()
         return app
     }

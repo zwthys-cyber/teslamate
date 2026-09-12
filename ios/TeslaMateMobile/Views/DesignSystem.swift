@@ -28,7 +28,7 @@ struct SymbolTile: View {
     var color: Color = .blue
     var body: some View {
         Image(systemName: symbol)
-            .font(.title3.weight(.semibold))
+            .font(.system(size: 20, weight: .semibold))
             .foregroundStyle(color)
             .frame(width: 46, height: 46)
             .background(color.opacity(0.12), in: .rect(cornerRadius: 14))
@@ -75,22 +75,25 @@ struct VehicleIdentityCard: View {
                 Label(historical ? "历史车辆" : "车辆档案", systemImage: historical ? "archivebox" : "car.side")
                     .font(.subheadline.weight(.medium))
                 Spacer()
-                Text(vehicle.model ?? "Tesla")
-                    .font(.subheadline.weight(.semibold))
+                if !typeSize.isAccessibilitySize {
+                    Text(vehicle.model ?? "Tesla")
+                        .font(.subheadline.weight(.semibold))
+                }
             }
             .foregroundStyle(.white.opacity(0.8))
-            Text(vehicle.name).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
-            if !typeSize.isAccessibilitySize {
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: 74, weight: .light))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .foregroundStyle(.white.opacity(0.9))
-                    .accessibilityHidden(true)
+            HStack(spacing: 16) {
+                Text(vehicle.name).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if !typeSize.isAccessibilitySize {
+                    Image(systemName: "car.side.fill")
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .accessibilityHidden(true)
+                }
             }
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("车辆识别码后六位").font(.caption).foregroundStyle(.white.opacity(0.75))
+                    Text("VIN 后六位").font(.caption).foregroundStyle(.white.opacity(0.75))
                     Text(vehicle.vinSuffix).font(.subheadline.monospaced().weight(.semibold))
                 }
                 Spacer()
