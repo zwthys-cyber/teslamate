@@ -65,7 +65,7 @@ struct DriveDetailView: View {
             Section("路线") {
                 LabeledContent("起点", value: drive.title)
                 LabeledContent("终点", value: drive.subtitle)
-                DriveRouteMap(points: drive.positions ?? [])
+                DriveRouteMap(points: drive.positions ?? [], downsampled: drive.sampling?.downsampled == true)
             }
             Section("行程数据") {
                 LabeledContent("里程", value: drive.primaryValue)
@@ -82,8 +82,10 @@ struct DriveDetailView: View {
 
 private struct DriveRouteMap: View {
     let points: [TrackPoint]
+    let downsampled: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
+    @State private var showsFullScreen = false
 
     private var coordinates: [CLLocationCoordinate2D] {
         points.filter(\.hasValidCoordinate).compactMap { point in
@@ -94,22 +96,79 @@ private struct DriveRouteMap: View {
 
     var body: some View {
         let coordinates = coordinates
-        if let first = coordinates.first, let last = coordinates.last {
-            Map(position: $camera) {
-                if coordinates.count > 1 { MapPolyline(coordinates: coordinates).stroke(.blue, lineWidth: 4) }
-                Marker("起点", systemImage: "flag", coordinate: first).tint(.green)
-                if coordinates.count > 1 { Marker("终点", systemImage: "flag.checkered", coordinate: last).tint(.red) }
+        if !coordinates.isEmpty {
+            RouteMapCanvas(coordinates: coordinates, camera: $camera)
+                .frame(height: 280)
+                .clipShape(.rect(cornerRadius: 12))
+            Button("全屏查看路线", systemImage: "arrow.up.left.and.arrow.down.right") {
+                showsFullScreen = true
             }
-            .frame(height: 280)
-            .clipShape(.rect(cornerRadius: 12))
-            .accessibilityLabel("行程路线地图，包含起点和终点")
-            Button("显示完整路线", systemImage: "arrow.up.left.and.arrow.down.right") {
+            .accessibilityHint("打开可缩放和拖动的全屏行程地图")
+            .fullScreenCover(isPresented: $showsFullScreen) {
+                FullScreenRouteView(coordinates: coordinates, downsampled: downsampled)
+            }
+            Button("显示完整路线", systemImage: "scope") {
                 if reduceMotion { camera = .automatic }
                 else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
             }
         } else {
             Label("这段行程没有可用的位置记录", systemImage: "map")
                 .font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct RouteMapCanvas: View {
+    let coordinates: [CLLocationCoordinate2D]
+    @Binding var camera: MapCameraPosition
+
+    var body: some View {
+        Map(position: $camera) {
+            if let first = coordinates.first, let last = coordinates.last {
+                if coordinates.count > 1 { MapPolyline(coordinates: coordinates).stroke(.blue, lineWidth: 4) }
+                Marker(coordinates.count == 1 ? "记录位置" : "起点", systemImage: "flag", coordinate: first).tint(.green)
+                if coordinates.count > 1 { Marker("终点", systemImage: "flag.checkered", coordinate: last).tint(.red) }
+            }
+        }
+        .accessibilityLabel(coordinates.count == 1 ? "行程地图，仅有一个记录位置" : "行程路线地图，包含起点和终点")
+    }
+}
+
+private struct FullScreenRouteView: View {
+    let coordinates: [CLLocationCoordinate2D]
+    let downsampled: Bool
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var camera: MapCameraPosition = .automatic
+
+    var body: some View {
+        NavigationStack {
+            RouteMapCanvas(coordinates: coordinates, camera: $camera)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 8) {
+                        if downsampled {
+                            Text("长行程路线已简化，起点和终点保留。")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Button("显示完整路线", systemImage: "scope") {
+                            if reduceMotion { camera = .automatic }
+                            else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial)
+                }
+                .navigationTitle("行程路线")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("关闭") { dismiss() }
+                            .accessibilityHint("返回行程详情")
+                    }
+                }
         }
     }
 }
