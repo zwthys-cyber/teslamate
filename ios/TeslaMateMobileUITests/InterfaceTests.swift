@@ -5,6 +5,14 @@ final class InterfaceTests: XCTestCase {
         let app = launch()
         XCTAssertTrue(app.buttons["行程记录"].waitForExistence(timeout: 15))
         capture("01-home", app: app)
+        XCUIDevice.shared.press(.home)
+        let icon = XCUIApplication(bundleIdentifier: "com.apple.springboard").icons["TeslaMate"]
+        XCTAssertTrue(icon.waitForExistence(timeout: 10))
+        let home = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        home.name = "11-app-icon"
+        home.lifetime = .keepAlways
+        add(home)
+        app.activate()
         app.buttons["行程记录"].tap()
         XCTAssertTrue(app.staticTexts["滨海公园"].waitForExistence(timeout: 10))
         capture("02-drives", app: app)
