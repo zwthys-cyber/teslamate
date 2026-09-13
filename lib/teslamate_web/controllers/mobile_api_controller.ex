@@ -8,11 +8,13 @@ defmodule TeslaMateWeb.MobileApiController do
   alias TeslaMate.Locations.GeoFence
   alias TeslaMate.Log.{Charge, ChargingProcess, Drive, Position, Update}
 
-  plug :validate_vehicle
-       when action in [:drives, :charging, :statistics, :updates, :battery_health]
+  plug(
+    :validate_vehicle
+    when action in [:drives, :charging, :statistics, :updates, :battery_health]
+  )
 
-  plug :load_record when action in [:drive, :charge]
-  plug :validate_history when action in [:drives, :charging]
+  plug(:load_record when action in [:drive, :charge])
+  plug(:validate_history when action in [:drives, :charging])
 
   @fields ~w(
     state since healthy latitude longitude heading battery_level usable_battery_level
@@ -124,29 +126,34 @@ defmodule TeslaMateWeb.MobileApiController do
 
     drive_stats =
       Repo.one(
-        from d in Drive,
+        from(d in Drive,
           where: d.car_id == ^car_id and not is_nil(d.end_date),
           select: %{
             count: count(d.id),
             distance_km: coalesce(sum(d.distance), 0.0),
+            distance_recorded_count: count(d.distance),
             duration_min: coalesce(sum(d.duration_min), 0)
           }
+        )
       )
 
     charge_stats =
       Repo.one(
-        from c in ChargingProcess,
+        from(c in ChargingProcess,
           where: c.car_id == ^car_id and not is_nil(c.end_date),
           select: %{
             count: count(c.id),
             energy_kwh: coalesce(sum(c.charge_energy_added), 0),
+            energy_recorded_count: count(c.charge_energy_added),
+            cost_recorded_count: count(c.cost),
             cost: coalesce(sum(c.cost), 0)
           }
+        )
       )
 
     monthly_driving =
       Repo.all(
-        from d in Drive,
+        from(d in Drive,
           where: d.car_id == ^car_id and d.start_date >= ^cutoff and not is_nil(d.end_date),
           group_by: fragment("date_trunc('month', ?)", d.start_date),
           order_by: fragment("date_trunc('month', ?)", d.start_date),
@@ -156,12 +163,13 @@ defmodule TeslaMateWeb.MobileApiController do
             distance_km: coalesce(sum(d.distance), 0.0),
             duration_min: coalesce(sum(d.duration_min), 0)
           }
+        )
       )
       |> Enum.map(&json_map/1)
 
     monthly_charging =
       Repo.all(
-        from c in ChargingProcess,
+        from(c in ChargingProcess,
           where: c.car_id == ^car_id and c.start_date >= ^cutoff and not is_nil(c.end_date),
           group_by: fragment("date_trunc('month', ?)", c.start_date),
           order_by: fragment("date_trunc('month', ?)", c.start_date),
@@ -171,11 +179,14 @@ defmodule TeslaMateWeb.MobileApiController do
             energy_kwh: coalesce(sum(c.charge_energy_added), 0),
             cost: coalesce(sum(c.cost), 0)
           }
+        )
       )
       |> Enum.map(&json_map/1)
 
     json(conn, %{
       data: %{
+        car_id: car_id,
+        scope: "completed_records",
         driving: json_map(drive_stats),
         charging: json_map(charge_stats),
         monthly_driving: monthly_driving,

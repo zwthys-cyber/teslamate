@@ -24,6 +24,7 @@ targets:
     scheme:
       testTargets:
         - TeslaMateMobileTests
+        - TeslaMateMobileUITests
   TeslaMateMobileTests:
     type: bundle.unit-test
     platform: iOS
@@ -34,3 +35,14 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+  TeslaMateMobileUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - TeslaMateMobileUITests
+    dependencies:
+      - target: TeslaMateMobile
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: TeslaMateMobile

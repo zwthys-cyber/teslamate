@@ -22,7 +22,14 @@ enum APIError: LocalizedError {
 struct APIClient {
     let serverURL: String
     let token: String
-    var session: URLSession = .shared
+    var session: URLSession = defaultSession
+
+    private static var defaultSession: URLSession {
+        #if DEBUG
+        if InterfacePreview.enabled { return InterfacePreview.urlSession }
+        #endif
+        return .shared
+    }
 
     static func normalizedServerURL(_ input: String) throws -> String {
         let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -42,6 +49,12 @@ struct APIClient {
 
     func vehicles() async throws -> [Vehicle] {
         let envelope: VehicleEnvelope = try await get("vehicles")
+        return envelope.data
+    }
+
+    func statistics(carID: Int) async throws -> VehicleStatistics {
+        let envelope: DetailEnvelope<VehicleStatistics> = try await get("statistics", query: [.init(name: "car_id", value: String(carID))])
+        if let responseID = envelope.data.carId, responseID != carID { throw APIError.invalidResponse }
         return envelope.data
     }
 

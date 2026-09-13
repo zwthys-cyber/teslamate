@@ -102,6 +102,29 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(detail.sampling?.downsampled, false)
     }
 
+    func testStatisticsRequireCoverageBeforeDisplayingSums() async throws {
+        StubURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/teslamate/api/mobile/v1/statistics")
+            XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: true)?.queryItems?.first?.value, "2")
+            return (200, Data(#"{"data":{"car_id":2,"driving":{"count":3,"distance_km":0},"charging":{"count":2,"energy_kwh":0}}}"#.utf8))
+        }
+        let result = try await client().statistics(carID: 2)
+        XCTAssertEqual(result.driving.count, 3)
+        XCTAssertEqual(result.distance, "—")
+        XCTAssertEqual(result.energy, "—")
+    }
+
+    func testStatisticsPreserveRecordedZeroAndRejectWrongVehicle() async throws {
+        StubURLProtocol.handler = { _ in
+            (200, Data(#"{"data":{"car_id":2,"driving":{"count":1,"distance_km":0,"distance_recorded_count":1},"charging":{"count":1,"energy_kwh":0,"energy_recorded_count":1}}}"#.utf8))
+        }
+        let result = try await client().statistics(carID: 2)
+        XCTAssertEqual(result.distance, HistoryFormat.number(0, unit: "km"))
+        XCTAssertEqual(result.energy, HistoryFormat.number(0, unit: "kWh"))
+        do { _ = try await client().statistics(carID: 3); XCTFail("Expected wrong vehicle rejection") }
+        catch APIError.invalidResponse { }
+    }
+
     private func client() -> APIClient {
         APIClient(serverURL: "https://example.com/teslamate", token: "test-token", session: session)
     }
