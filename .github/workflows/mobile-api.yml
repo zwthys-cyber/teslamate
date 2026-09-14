@@ -4,21 +4,21 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'lib/**'
-      - 'config/**'
-      - 'priv/repo/migrations/**'
-      - 'test/**'
-      - 'mix.*'
-      - '.github/workflows/mobile-api.yml'
+      - "lib/**"
+      - "config/**"
+      - "priv/repo/migrations/**"
+      - "test/**"
+      - "mix.*"
+      - ".github/workflows/mobile-api.yml"
   push:
     branches: [main]
     paths:
-      - 'lib/**'
-      - 'config/**'
-      - 'priv/repo/migrations/**'
-      - 'test/**'
-      - 'mix.*'
-      - '.github/workflows/mobile-api.yml'
+      - "lib/**"
+      - "config/**"
+      - "priv/repo/migrations/**"
+      - "test/**"
+      - "mix.*"
+      - ".github/workflows/mobile-api.yml"
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ jobs:
     services:
       database:
         image: postgres:18-trixie
-        ports: ['5432:5432']
+        ports: ["5432:5432"]
         env:
           POSTGRES_PASSWORD: postgres
         options: >-

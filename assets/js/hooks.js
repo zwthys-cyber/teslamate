@@ -166,7 +166,11 @@ function wgs84ToGcj02(latValue, lngValue) {
   const lat = Number(latValue);
   const lng = Number(lngValue);
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || isOutsideChina(lat, lng)) {
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    isOutsideChina(lat, lng)
+  ) {
     return [latValue, lngValue];
   }
 
@@ -183,13 +187,11 @@ function wgs84ToGcj02(latValue, lngValue) {
     0.1 * x * y +
     0.2 * Math.sqrt(Math.abs(x));
   dLat +=
-    ((20.0 * Math.sin(6.0 * x * Math.PI) +
-      20.0 * Math.sin(2.0 * x * Math.PI)) *
+    ((20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) *
       2.0) /
     3.0;
   dLat +=
-    ((20.0 * Math.sin(y * Math.PI) +
-      40.0 * Math.sin((y / 3.0) * Math.PI)) *
+    ((20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin((y / 3.0) * Math.PI)) *
       2.0) /
     3.0;
   dLat +=
@@ -206,13 +208,11 @@ function wgs84ToGcj02(latValue, lngValue) {
     0.1 * x * y +
     0.1 * Math.sqrt(Math.abs(x));
   dLng +=
-    ((20.0 * Math.sin(6.0 * x * Math.PI) +
-      20.0 * Math.sin(2.0 * x * Math.PI)) *
+    ((20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) *
       2.0) /
     3.0;
   dLng +=
-    ((20.0 * Math.sin(x * Math.PI) +
-      40.0 * Math.sin((x / 3.0) * Math.PI)) *
+    ((20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin((x / 3.0) * Math.PI)) *
       2.0) /
     3.0;
   dLng +=
