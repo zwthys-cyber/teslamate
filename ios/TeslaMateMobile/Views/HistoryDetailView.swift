@@ -223,7 +223,7 @@ private struct DriveRouteMap: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
     @State private var showsFullScreen = false
-    @State private var progress = 1.0
+    @State private var progress = 0.55
 
     private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
 
@@ -287,7 +287,7 @@ private struct RouteMapCanvas: View {
                 if coordinates.count > 1 { Marker("终点", systemImage: "flag.checkered", coordinate: last).tint(.red) }
             }
             if let selectedCoordinate {
-                Annotation("行程位置", coordinate: selectedCoordinate) {
+                Annotation("", coordinate: selectedCoordinate) {
                     Image(systemName: "car.side.fill")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.white)
@@ -338,7 +338,7 @@ private struct FullScreenRouteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
-    @State private var progress = 1.0
+    @State private var progress = 0.55
 
     private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
     private var coordinates: [CLLocationCoordinate2D] {
