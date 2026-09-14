@@ -26,9 +26,13 @@ enum InterfacePreview {
         "start_name": "滨海公园", "end_name": "城市艺术中心", "distance_km": 28.6, "duration_min": 42,
         "speed_max": 80, "outside_temp_avg": 24,
         "positions": [
-            ["date": "2026-09-01T08:00:00Z", "latitude": 37.78, "longitude": -122.42],
-            ["date": "2026-09-01T08:20:00Z", "latitude": 37.79, "longitude": -122.41],
-            ["date": "2026-09-01T08:42:00Z", "latitude": 37.80, "longitude": -122.43]
+            ["date": "2026-09-01T08:00:00Z", "latitude": 37.780, "longitude": -122.420, "speed": 8],
+            ["date": "2026-09-01T08:06:00Z", "latitude": 37.783, "longitude": -122.414, "speed": 24],
+            ["date": "2026-09-01T08:13:00Z", "latitude": 37.789, "longitude": -122.410, "speed": 46],
+            ["date": "2026-09-01T08:20:00Z", "latitude": 37.795, "longitude": -122.413, "speed": 68],
+            ["date": "2026-09-01T08:28:00Z", "latitude": 37.799, "longitude": -122.420, "speed": 82],
+            ["date": "2026-09-01T08:35:00Z", "latitude": 37.803, "longitude": -122.428, "speed": 55],
+            ["date": "2026-09-01T08:42:00Z", "latitude": 37.800, "longitude": -122.435, "speed": 12]
         ]
     ]
     static let charge: [String: Any] = [
