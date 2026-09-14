@@ -8,10 +8,24 @@ private struct RecordDetailView<Item: HistoryEntry, Content: View>: View {
     let carID: Int
     let id: Int
     let title: String
+    let showsSummary: Bool
+    let showsTime: Bool
     @ViewBuilder var content: (Item) -> Content
     @State private var record: Item?
     @State private var errorMessage: String?
     @State private var isLoading = false
+
+    init(client: APIClient, carID: Int, id: Int, title: String,
+         showsSummary: Bool = true, showsTime: Bool = true,
+         @ViewBuilder content: @escaping (Item) -> Content) {
+        self.client = client
+        self.carID = carID
+        self.id = id
+        self.title = title
+        self.showsSummary = showsSummary
+        self.showsTime = showsTime
+        self.content = content
+    }
 
     var body: some View {
         List {
@@ -23,14 +37,18 @@ private struct RecordDetailView<Item: HistoryEntry, Content: View>: View {
                 }
             }
             if let record {
-                Section {
-                    RecordSummaryCard(record: record)
+                if showsSummary {
+                    Section {
+                        RecordSummaryCard(record: record)
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                Section("时间") {
-                    LabeledContent("开始", value: record.startDate.formatted(date: .abbreviated, time: .shortened))
-                    LabeledContent("结束", value: record.endDate?.formatted(date: .abbreviated, time: .shortened) ?? "进行中")
+                if showsTime {
+                    Section("时间") {
+                        LabeledContent("开始", value: record.startDate.formatted(date: .abbreviated, time: .shortened))
+                        LabeledContent("结束", value: record.endDate?.formatted(date: .abbreviated, time: .shortened) ?? "进行中")
+                    }
                 }
                 content(record)
             } else if isLoading {
@@ -88,20 +106,18 @@ struct DriveDetailView: View {
     let id: Int
 
     var body: some View {
-        RecordDetailView(client: client, carID: carID, id: id, title: "行程详情") { (drive: DriveRecord) in
-            Section("路线") {
-                JourneySketchCard(drive: drive)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                RouteEndpointsCard(start: drive.title, end: drive.subtitle)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+        RecordDetailView(client: client, carID: carID, id: id, title: "行程详情",
+                         showsSummary: false, showsTime: false) { (drive: DriveRecord) in
+            Section {
                 DriveRouteMap(drive: drive)
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            Section("路线") {
+                RouteEndpointsCard(drive: drive)
             }
             Section("行程数据") {
                 DriveMetricsGrid(drive: drive)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
             }
             if drive.sampling?.downsampled == true {
                 Section { Text("长行程路线已简化，起点和终点保留。").font(.footnote).foregroundStyle(.secondary) }
@@ -110,125 +126,34 @@ struct DriveDetailView: View {
     }
 }
 
-private struct JourneySketchCard: View {
-    let drive: DriveRecord
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var paper: Color {
-        colorScheme == .dark ? Color(red: 0.12, green: 0.13, blue: 0.15) : Color(red: 0.98, green: 0.96, blue: 0.89)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("TRIP NOTES")
-                    .font(.caption.weight(.black))
-                    .tracking(2.2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(drive.startDate.formatted(.dateTime.month().day()))
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .overlay(Capsule().stroke(.orange, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
-                    .foregroundStyle(.orange)
-            }
-
-            RouteDoodle()
-                .frame(height: 112)
-                .accessibilityHidden(true)
-
-            HStack(alignment: .lastTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("这次旅程")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Text(drive.primaryValue)
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .monospacedDigit()
-                }
-                Spacer()
-                Label(drive.secondaryValue, systemImage: "clock")
-                    .font(.subheadline.weight(.semibold))
-            }
-        }
-        .padding(20)
-        .background(paper, in: .rect(cornerRadius: 22))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22)
-                .stroke(.primary.opacity(0.16), style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
-        }
-        .rotationEffect(.degrees(-0.35))
-        .shadow(color: .black.opacity(colorScheme == .dark ? 0.2 : 0.08), radius: 10, y: 5)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("旅程手账，\(drive.primaryValue)，\(drive.secondaryValue)")
-    }
-}
-
-private struct RouteDoodle: View {
-    var body: some View {
-        Canvas { context, size in
-            let start = CGPoint(x: size.width * 0.08, y: size.height * 0.76)
-            let end = CGPoint(x: size.width * 0.91, y: size.height * 0.22)
-            var route = Path()
-            route.move(to: start)
-            route.addCurve(to: CGPoint(x: size.width * 0.48, y: size.height * 0.58),
-                           control1: CGPoint(x: size.width * 0.18, y: size.height * 0.24),
-                           control2: CGPoint(x: size.width * 0.34, y: size.height * 0.98))
-            route.addCurve(to: end,
-                           control1: CGPoint(x: size.width * 0.67, y: size.height * 0.18),
-                           control2: CGPoint(x: size.width * 0.77, y: size.height * 0.53))
-            context.stroke(route, with: .color(.blue.opacity(0.22)),
-                           style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
-            context.stroke(route, with: .color(.blue),
-                           style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round, dash: [8, 7]))
-
-            context.fill(Path(ellipseIn: CGRect(x: start.x - 7, y: start.y - 7, width: 14, height: 14)), with: .color(.green))
-            context.stroke(Path(ellipseIn: CGRect(x: end.x - 8, y: end.y - 8, width: 16, height: 16)),
-                           with: .color(.red), lineWidth: 4)
-
-            var car = context.resolve(Image(systemName: "car.side.fill"))
-            car.shading = .color(.primary)
-            context.draw(car, at: CGPoint(x: size.width * 0.56, y: size.height * 0.42), anchor: .center)
-        }
-    }
-}
-
 private struct RouteEndpointsCard: View {
-    let start: String
-    let end: String
+    let drive: DriveRecord
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(spacing: 3) {
-                Circle().fill(.green).frame(width: 10, height: 10)
-                Rectangle().fill(.secondary.opacity(0.3)).frame(width: 2, height: 38)
-                Circle().strokeBorder(.red, lineWidth: 3).frame(width: 10, height: 10)
-            }
-            .padding(.top, 6)
-            .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 14) {
-                endpoint(label: "出发", value: start)
+        VStack(spacing: 0) {
+            endpoint(color: .green, label: "出发", value: drive.title, date: drive.startDate)
+            HStack(spacing: 12) {
+                Rectangle().fill(.secondary.opacity(0.22)).frame(width: 2, height: 22).padding(.leading, 5)
                 Divider()
-                endpoint(label: "到达", value: end)
             }
-        }
-        .padding(18)
-        .background(AppDesign.surface, in: .rect(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(.primary.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+            endpoint(color: .red, label: "到达", value: drive.subtitle, date: drive.endDate)
         }
         .accessibilityElement(children: .combine)
     }
 
-    private func endpoint(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+    private func endpoint(color: Color, label: String, value: String, date: Date?) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Circle().fill(color).frame(width: 12, height: 12).padding(.top, 5).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label).font(.caption).foregroundStyle(.secondary)
+                Text(value).font(.body.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Text(date?.formatted(date: .omitted, time: .shortened) ?? "进行中")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
     }
 }
 
@@ -243,6 +168,7 @@ private struct DriveMetricsGrid: View {
             DriveMetricTile(title: "最高速度", value: HistoryFormat.number(drive.speedMax, unit: "km/h"), symbol: "speedometer")
             DriveMetricTile(title: "平均外温", value: HistoryFormat.number(drive.outsideTempAvg, unit: "°C"), symbol: "thermometer.medium")
         }
+        .padding(.vertical, 4)
     }
 }
 
@@ -257,17 +183,12 @@ private struct DriveMetricTile: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .font(.headline)
                 .monospacedDigit()
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
-        .padding(14)
-        .background(AppDesign.surface, in: .rect(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.primary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
-        }
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
     }
 }
@@ -300,8 +221,7 @@ private struct DriveRouteMap: View {
                 .foregroundStyle(.white)
                 .padding(12)
             }
-            .frame(height: 300)
-            .clipShape(.rect(cornerRadius: 16))
+            .frame(height: 320)
 
             HStack {
                 Button("全屏路线", systemImage: "arrow.up.left.and.arrow.down.right") {
@@ -311,6 +231,7 @@ private struct DriveRouteMap: View {
                 Button("适合路线", systemImage: "scope") { fitRoute() }
             }
             .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 16)
             .buttonStyle(.borderless)
             .fullScreenCover(isPresented: $showsFullScreen) {
                 FullScreenRouteView(coordinates: coordinates,
