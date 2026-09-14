@@ -60,7 +60,6 @@ defmodule TeslaMateWeb.Router do
     put "/car/:id/logging/suspend", CarController, :suspend_logging
   end
 
-
   scope "/api/mobile/v1", TeslaMateWeb do
     pipe_through :mobile_api
 
