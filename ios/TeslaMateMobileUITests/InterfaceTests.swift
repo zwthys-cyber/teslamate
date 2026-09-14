@@ -18,16 +18,18 @@ final class InterfaceTests: XCTestCase {
         capture("02-drives", app: app)
         app.staticTexts["滨海公园"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["行程回顾"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["TRIP NOTES"].waitForExistence(timeout: 5))
+        capture("03-drive-sketch-detail", app: app)
         app.swipeUp()
-        XCTAssertTrue(app.buttons["全屏查看路线"].waitForExistence(timeout: 5))
-        app.buttons["全屏查看路线"].tap()
+        XCTAssertTrue(app.buttons["全屏路线"].waitForExistence(timeout: 5))
+        app.buttons["全屏路线"].tap()
         XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 5))
-        capture("03-fullscreen-route", app: app)
+        capture("04-fullscreen-route", app: app)
         app.buttons["关闭"].tap()
         XCTAssertTrue(app.navigationBars["行程详情"].waitForExistence(timeout: 5))
         app.tabBars.buttons["设置"].tap()
         XCTAssertTrue(app.staticTexts["管理连接"].waitForExistence(timeout: 5))
-        capture("04-settings", app: app)
+        capture("05-settings", app: app)
     }
 
     func testDarkAppearanceAndCharging() {

@@ -90,15 +90,18 @@ struct DriveDetailView: View {
     var body: some View {
         RecordDetailView(client: client, carID: carID, id: id, title: "行程详情") { (drive: DriveRecord) in
             Section("路线") {
-                LabeledContent("起点", value: drive.title)
-                LabeledContent("终点", value: drive.subtitle)
-                DriveRouteMap(points: drive.positions ?? [], downsampled: drive.sampling?.downsampled == true)
+                JourneySketchCard(drive: drive)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                RouteEndpointsCard(start: drive.title, end: drive.subtitle)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                DriveRouteMap(drive: drive)
             }
             Section("行程数据") {
-                LabeledContent("里程", value: drive.primaryValue)
-                LabeledContent("时长", value: drive.secondaryValue)
-                LabeledContent("最高速度", value: HistoryFormat.number(drive.speedMax, unit: "km/h"))
-                LabeledContent("平均外部温度", value: HistoryFormat.number(drive.outsideTempAvg, unit: "°C"))
+                DriveMetricsGrid(drive: drive)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
             if drive.sampling?.downsampled == true {
                 Section { Text("长行程路线已简化，起点和终点保留。").font(.footnote).foregroundStyle(.secondary) }
@@ -107,15 +110,176 @@ struct DriveDetailView: View {
     }
 }
 
+private struct JourneySketchCard: View {
+    let drive: DriveRecord
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var paper: Color {
+        colorScheme == .dark ? Color(red: 0.12, green: 0.13, blue: 0.15) : Color(red: 0.98, green: 0.96, blue: 0.89)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("TRIP NOTES")
+                    .font(.caption.weight(.black))
+                    .tracking(2.2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(drive.startDate.formatted(.dateTime.month().day()))
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .overlay(Capsule().stroke(.orange, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+                    .foregroundStyle(.orange)
+            }
+
+            RouteDoodle()
+                .frame(height: 112)
+                .accessibilityHidden(true)
+
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("这次旅程")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Text(drive.primaryValue)
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .monospacedDigit()
+                }
+                Spacer()
+                Label(drive.secondaryValue, systemImage: "clock")
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+        .padding(20)
+        .background(paper, in: .rect(cornerRadius: 22))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(.primary.opacity(0.16), style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
+        }
+        .rotationEffect(.degrees(-0.35))
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.2 : 0.08), radius: 10, y: 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("旅程手账，\(drive.primaryValue)，\(drive.secondaryValue)")
+    }
+}
+
+private struct RouteDoodle: View {
+    var body: some View {
+        Canvas { context, size in
+            let start = CGPoint(x: size.width * 0.08, y: size.height * 0.76)
+            let end = CGPoint(x: size.width * 0.91, y: size.height * 0.22)
+            var route = Path()
+            route.move(to: start)
+            route.addCurve(to: CGPoint(x: size.width * 0.48, y: size.height * 0.58),
+                           control1: CGPoint(x: size.width * 0.18, y: size.height * 0.24),
+                           control2: CGPoint(x: size.width * 0.34, y: size.height * 0.98))
+            route.addCurve(to: end,
+                           control1: CGPoint(x: size.width * 0.67, y: size.height * 0.18),
+                           control2: CGPoint(x: size.width * 0.77, y: size.height * 0.53))
+            context.stroke(route, with: .color(.blue.opacity(0.22)),
+                           style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+            context.stroke(route, with: .color(.blue),
+                           style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round, dash: [8, 7]))
+
+            context.fill(Path(ellipseIn: CGRect(x: start.x - 7, y: start.y - 7, width: 14, height: 14)), with: .color(.green))
+            context.stroke(Path(ellipseIn: CGRect(x: end.x - 8, y: end.y - 8, width: 16, height: 16)),
+                           with: .color(.red), lineWidth: 4)
+
+            var car = context.resolve(Image(systemName: "car.side.fill"))
+            car.shading = .color(.primary)
+            context.draw(car, at: CGPoint(x: size.width * 0.56, y: size.height * 0.42), anchor: .center)
+        }
+    }
+}
+
+private struct RouteEndpointsCard: View {
+    let start: String
+    let end: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 3) {
+                Circle().fill(.green).frame(width: 10, height: 10)
+                Rectangle().fill(.secondary.opacity(0.3)).frame(width: 2, height: 38)
+                Circle().strokeBorder(.red, lineWidth: 3).frame(width: 10, height: 10)
+            }
+            .padding(.top, 6)
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 14) {
+                endpoint(label: "出发", value: start)
+                Divider()
+                endpoint(label: "到达", value: end)
+            }
+        }
+        .padding(18)
+        .background(AppDesign.surface, in: .rect(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(.primary.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func endpoint(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct DriveMetricsGrid: View {
+    let drive: DriveRecord
+    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            DriveMetricTile(title: "里程", value: drive.primaryValue, symbol: "road.lanes")
+            DriveMetricTile(title: "时长", value: drive.secondaryValue, symbol: "clock")
+            DriveMetricTile(title: "最高速度", value: HistoryFormat.number(drive.speedMax, unit: "km/h"), symbol: "speedometer")
+            DriveMetricTile(title: "平均外温", value: HistoryFormat.number(drive.outsideTempAvg, unit: "°C"), symbol: "thermometer.medium")
+        }
+    }
+}
+
+private struct DriveMetricTile: View {
+    let title: String
+    let value: String
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+        .padding(14)
+        .background(AppDesign.surface, in: .rect(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(.primary.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct DriveRouteMap: View {
-    let points: [TrackPoint]
-    let downsampled: Bool
+    let drive: DriveRecord
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
     @State private var showsFullScreen = false
 
     private var coordinates: [CLLocationCoordinate2D] {
-        points.filter(\.hasValidCoordinate).compactMap { point in
+        (drive.positions ?? []).filter(\.hasValidCoordinate).compactMap { point in
             guard let latitude = point.latitude, let longitude = point.longitude else { return nil }
             return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         }
@@ -124,24 +288,47 @@ private struct DriveRouteMap: View {
     var body: some View {
         let coordinates = coordinates
         if !coordinates.isEmpty {
-            RouteMapCanvas(coordinates: coordinates, camera: $camera)
-                .frame(height: 280)
-                .clipShape(.rect(cornerRadius: 12))
-            Button("全屏查看路线", systemImage: "arrow.up.left.and.arrow.down.right") {
-                showsFullScreen = true
+            ZStack(alignment: .bottomLeading) {
+                RouteMapCanvas(coordinates: coordinates, camera: $camera)
+                LinearGradient(colors: [.clear, .black.opacity(0.52)], startPoint: .center, endPoint: .bottom)
+                    .allowsHitTesting(false)
+                HStack(spacing: 8) {
+                    Label(drive.primaryValue, systemImage: "road.lanes")
+                    Label(drive.secondaryValue, systemImage: "clock")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(12)
             }
-            .accessibilityHint("打开可缩放和拖动的全屏行程地图")
+            .frame(height: 300)
+            .clipShape(.rect(cornerRadius: 16))
+
+            HStack {
+                Button("全屏路线", systemImage: "arrow.up.left.and.arrow.down.right") {
+                    showsFullScreen = true
+                }
+                Spacer()
+                Button("适合路线", systemImage: "scope") { fitRoute() }
+            }
+            .font(.subheadline.weight(.medium))
+            .buttonStyle(.borderless)
             .fullScreenCover(isPresented: $showsFullScreen) {
-                FullScreenRouteView(coordinates: coordinates, downsampled: downsampled)
-            }
-            Button("显示完整路线", systemImage: "scope") {
-                if reduceMotion { camera = .automatic }
-                else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
+                FullScreenRouteView(coordinates: coordinates,
+                                    startName: drive.title,
+                                    endName: drive.subtitle,
+                                    distance: drive.primaryValue,
+                                    duration: drive.secondaryValue,
+                                    downsampled: drive.sampling?.downsampled == true)
             }
         } else {
             Label("这段行程没有可用的位置记录", systemImage: "map")
                 .font(.subheadline).foregroundStyle(.secondary)
         }
+    }
+
+    private func fitRoute() {
+        if reduceMotion { camera = .automatic }
+        else { withAnimation(.easeInOut(duration: 0.22)) { camera = .automatic } }
     }
 }
 
@@ -157,12 +344,20 @@ private struct RouteMapCanvas: View {
                 if coordinates.count > 1 { Marker("终点", systemImage: "flag.checkered", coordinate: last).tint(.red) }
             }
         }
+        .mapControls {
+            MapCompass()
+            MapScaleView()
+        }
         .accessibilityLabel(coordinates.count == 1 ? "行程地图，仅有一个记录位置" : "行程路线地图，包含起点和终点")
     }
 }
 
 private struct FullScreenRouteView: View {
     let coordinates: [CLLocationCoordinate2D]
+    let startName: String
+    let endName: String
+    let distance: String
+    let duration: String
     let downsampled: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -172,12 +367,21 @@ private struct FullScreenRouteView: View {
         NavigationStack {
             RouteMapCanvas(coordinates: coordinates, camera: $camera)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    VStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 18) {
+                            Label(distance, systemImage: "road.lanes")
+                            Label(duration, systemImage: "clock")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) { mapButton(forStart: true); mapButton(forStart: false) }
+                            VStack(spacing: 8) { mapButton(forStart: true); mapButton(forStart: false) }
+                        }
                         if downsampled {
                             Text("长行程路线已简化，起点和终点保留。")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
-                        Button("显示完整路线", systemImage: "scope") {
+                        Button("重新显示完整路线", systemImage: "scope") {
                             if reduceMotion { camera = .automatic }
                             else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
                         }
@@ -197,6 +401,20 @@ private struct FullScreenRouteView: View {
                     }
                 }
         }
+    }
+
+    private func mapButton(forStart: Bool) -> some View {
+        let coordinate = forStart ? coordinates.first : coordinates.last
+        let name = forStart ? startName : endName
+        return Button(forStart ? "在地图中查看起点" : "在地图中查看终点",
+                      systemImage: forStart ? "location" : "flag.checkered") {
+            guard let coordinate else { return }
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+            item.name = name
+            item.openInMaps()
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .buttonStyle(.bordered)
     }
 }
 
