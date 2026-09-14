@@ -154,42 +154,34 @@ private struct RouteEndpointsCard: View {
     }
 }
 
-private struct RoutePlaybackPanel: View {
+private struct RouteSummaryPanel: View {
     let drive: DriveRecord
-    @Binding var progress: Double
-
-    private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
-    private var selected: TrackPoint? {
-        guard !points.isEmpty else { return nil }
-        let index = min(points.count - 1, max(0, Int((Double(points.count - 1) * progress).rounded())))
-        return points[index]
-    }
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(selected?.date.formatted(date: .omitted, time: .standard) ?? "—")
-                    .font(.headline.monospacedDigit())
-                Spacer()
-                Text(HistoryFormat.number(selected?.speed, unit: "km/h"))
-                    .font(.title3.weight(.semibold).monospacedDigit())
+        VStack(spacing: 9) {
+            HStack(spacing: 0) {
+                metric("里程", drive.primaryValue)
+                metric("时长", drive.secondaryValue)
+                metric("最高", HistoryFormat.number(drive.speedMax, unit: "km/h"))
+                metric("外温", HistoryFormat.number(drive.outsideTempAvg, unit: "°C"))
             }
-            Slider(value: $progress, in: 0...1)
-                .tint(speedColor(selected?.speed))
-                .accessibilityLabel("行程时间轴")
-                .accessibilityValue("\(selected?.date.formatted(date: .omitted, time: .standard) ?? "未知时间")，速度 \(HistoryFormat.number(selected?.speed, unit: "km/h"))")
-            HStack(spacing: 12) {
-                Label(drive.primaryValue, systemImage: "road.lanes")
-                Label(drive.secondaryValue, systemImage: "clock")
-                Spacer(minLength: 0)
-                SpeedLegend()
-            }
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
+            SpeedLegend()
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(.regularMaterial, in: .rect(cornerRadius: 16))
         .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+    }
+
+    private func metric(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 3) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.caption.weight(.semibold)).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -223,18 +215,17 @@ private struct DriveRouteMap: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
     @State private var showsFullScreen = false
-    @State private var progress = 0.55
 
     private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
 
     var body: some View {
         if !points.isEmpty {
             ZStack(alignment: .bottom) {
-                RouteMapCanvas(points: points, camera: $camera, progress: $progress)
-                RoutePlaybackPanel(drive: drive, progress: $progress)
+                RouteMapCanvas(points: points, camera: $camera)
+                RouteSummaryPanel(drive: drive)
                     .padding(12)
             }
-            .frame(height: 400)
+            .frame(height: 360)
 
             HStack {
                 Button("全屏路线", systemImage: "arrow.up.left.and.arrow.down.right") {
@@ -267,14 +258,8 @@ private struct DriveRouteMap: View {
 private struct RouteMapCanvas: View {
     let points: [TrackPoint]
     @Binding var camera: MapCameraPosition
-    @Binding var progress: Double
 
     private var coordinates: [CLLocationCoordinate2D] { points.compactMap(coordinate) }
-    private var selectedCoordinate: CLLocationCoordinate2D? {
-        guard !points.isEmpty else { return nil }
-        let index = min(points.count - 1, max(0, Int((Double(points.count - 1) * progress).rounded())))
-        return coordinate(points[index])
-    }
 
     var body: some View {
         Map(position: $camera) {
@@ -286,28 +271,12 @@ private struct RouteMapCanvas: View {
                 Marker(coordinates.count == 1 ? "记录位置" : "起点", systemImage: "flag", coordinate: first).tint(.green)
                 if coordinates.count > 1 { Marker("终点", systemImage: "flag.checkered", coordinate: last).tint(.red) }
             }
-            if let selectedCoordinate {
-                Annotation("", coordinate: selectedCoordinate) {
-                    Image(systemName: "car.side.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(7)
-                        .background(speedColor(selectedPoint?.speed), in: Circle())
-                        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-                }
-            }
         }
         .mapControls {
             MapCompass()
             MapScaleView()
         }
         .accessibilityLabel(coordinates.count == 1 ? "行程地图，仅有一个记录位置" : "行程路线地图，包含起点和终点")
-    }
-
-    private var selectedPoint: TrackPoint? {
-        guard !points.isEmpty else { return nil }
-        let index = min(points.count - 1, max(0, Int((Double(points.count - 1) * progress).rounded())))
-        return points[index]
     }
 
     private var routeSegments: [RouteSegment] {
@@ -338,7 +307,6 @@ private struct FullScreenRouteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
-    @State private var progress = 0.55
 
     private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
     private var coordinates: [CLLocationCoordinate2D] {
@@ -350,10 +318,10 @@ private struct FullScreenRouteView: View {
 
     var body: some View {
         NavigationStack {
-            RouteMapCanvas(points: points, camera: $camera, progress: $progress)
+            RouteMapCanvas(points: points, camera: $camera)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(alignment: .leading, spacing: 12) {
-                        RoutePlaybackPanel(drive: drive, progress: $progress)
+                        RouteSummaryPanel(drive: drive)
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: 12) { mapButton(forStart: true); mapButton(forStart: false) }
                             VStack(spacing: 8) { mapButton(forStart: true); mapButton(forStart: false) }
