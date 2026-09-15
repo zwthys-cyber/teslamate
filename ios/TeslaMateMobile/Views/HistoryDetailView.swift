@@ -188,11 +188,11 @@ private struct RouteSummaryPanel: View {
 private struct SpeedLegend: View {
     var body: some View {
         HStack(spacing: 5) {
-            legendDot(.green, "慢")
-            legendDot(.blue, "巡航")
-            legendDot(.orange, "快")
+            legendDot(RoutePalette.low, "慢")
+            legendDot(RoutePalette.cruise, "巡航")
+            legendDot(RoutePalette.fast, "快")
         }
-        .accessibilityLabel("路线颜色表示速度，从绿色低速、蓝色巡航到橙色高速")
+        .accessibilityLabel("路线颜色表示速度，从青绿色低速、靛蓝色巡航到珊瑚色高速")
     }
 
     private func legendDot(_ color: Color, _ label: String) -> some View {
@@ -203,11 +203,20 @@ private struct SpeedLegend: View {
     }
 }
 
+private enum RoutePalette {
+    static let low = Color(red: 0.20, green: 0.66, blue: 0.59)
+    static let cruise = Color(red: 0.20, green: 0.35, blue: 0.72)
+    static let fast = Color(red: 0.91, green: 0.47, blue: 0.32)
+    static let halo = Color(red: 0.45, green: 0.83, blue: 0.84)
+    static let wash = Color(red: 0.40, green: 0.78, blue: 0.78)
+    static let ink = Color(red: 0.08, green: 0.20, blue: 0.31)
+}
+
 private func speedColor(_ speed: Double?) -> Color {
     guard let speed, speed.isFinite else { return .gray }
-    if speed < 30 { return .green }
-    if speed < 80 { return .blue }
-    return .orange
+    if speed < 30 { return RoutePalette.low }
+    if speed < 80 { return RoutePalette.cruise }
+    return RoutePalette.fast
 }
 
 private struct DriveRouteMap: View {
@@ -260,21 +269,52 @@ private struct RouteMapCanvas: View {
     @Binding var camera: MapCameraPosition
 
     private var coordinates: [CLLocationCoordinate2D] { points.compactMap(coordinate) }
+    private var peakPoint: TrackPoint? {
+        points.filter { $0.speed?.isFinite == true }.max { ($0.speed ?? 0) < ($1.speed ?? 0) }
+    }
 
     var body: some View {
-        Map(position: $camera) {
-            if let first = coordinates.first, let last = coordinates.last {
-                ForEach(routeSegments) { segment in
-                    MapPolyline(coordinates: segment.coordinates)
-                        .stroke(segment.color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+        ZStack {
+            Map(position: $camera) {
+                if let first = coordinates.first, let last = coordinates.last {
+                    if coordinates.count > 1 {
+                        MapPolyline(coordinates: coordinates)
+                            .stroke(RoutePalette.halo.opacity(0.28),
+                                    style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
+                        MapPolyline(coordinates: coordinates)
+                            .stroke(.white.opacity(0.92),
+                                    style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+                    }
+                    ForEach(routeSegments) { segment in
+                        MapPolyline(coordinates: segment.coordinates)
+                            .stroke(segment.color,
+                                    style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                    }
+                    Annotation(coordinates.count == 1 ? "记录位置" : "起点", coordinate: first) {
+                        RouteEndpointMarker(symbol: "location.fill", color: RoutePalette.low)
+                    }
+                    if coordinates.count > 1 {
+                        Annotation("终点", coordinate: last) {
+                            RouteEndpointMarker(symbol: "flag.checkered", color: RoutePalette.fast)
+                        }
+                    }
+                    if let peakPoint, let peakCoordinate = coordinate(peakPoint), let speed = peakPoint.speed {
+                        Annotation("最高速度", coordinate: peakCoordinate, anchor: .bottom) {
+                            RouteDataBubble(title: "最高", value: HistoryFormat.number(speed, unit: "km/h"))
+                        }
+                    }
                 }
-                Marker(coordinates.count == 1 ? "记录位置" : "起点", systemImage: "flag", coordinate: first).tint(.green)
-                if coordinates.count > 1 { Marker("终点", systemImage: "flag.checkered", coordinate: last).tint(.red) }
             }
-        }
-        .mapControls {
-            MapCompass()
-            MapScaleView()
+            .mapStyle(.standard(elevation: .flat, emphasis: .muted,
+                                pointsOfInterest: .excludingAll, showsTraffic: false))
+            .mapControls {
+                MapCompass()
+                MapScaleView()
+            }
+
+            RoutePalette.wash.opacity(0.055)
+                .blendMode(.multiply)
+                .allowsHitTesting(false)
         }
         .accessibilityLabel(coordinates.count == 1 ? "行程地图，仅有一个记录位置" : "行程路线地图，包含起点和终点")
     }
@@ -290,6 +330,38 @@ private struct RouteMapCanvas: View {
     private func coordinate(_ point: TrackPoint) -> CLLocationCoordinate2D? {
         guard let latitude = point.latitude, let longitude = point.longitude else { return nil }
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+private struct RouteEndpointMarker: View {
+    let symbol: String
+    let color: Color
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.caption.bold())
+            .foregroundStyle(.white)
+            .frame(width: 30, height: 30)
+            .background(color, in: Circle())
+            .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 2))
+            .shadow(color: RoutePalette.ink.opacity(0.22), radius: 5, y: 2)
+    }
+}
+
+private struct RouteDataBubble: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.caption.bold()).monospacedDigit().foregroundStyle(RoutePalette.ink)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(.white.opacity(0.8), lineWidth: 1))
+        .shadow(color: RoutePalette.ink.opacity(0.14), radius: 6, y: 2)
     }
 }
 
