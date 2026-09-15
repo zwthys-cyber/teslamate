@@ -229,11 +229,10 @@ private struct DriveRouteMap: View {
 
     var body: some View {
         if !points.isEmpty {
-            ZStack(alignment: .bottom) {
-                RouteMapCanvas(points: points, camera: $camera)
-                RouteSummaryPanel(drive: drive)
-                    .padding(12)
-            }
+            RouteMapCanvas(points: points, camera: $camera)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    RouteSummaryPanel(drive: drive).padding(8)
+                }
             .frame(height: 360)
 
             HStack {
@@ -299,9 +298,10 @@ private struct RouteMapCanvas: View {
                         }
                     }
                     if let peakPoint, let peakCoordinate = coordinate(peakPoint), let speed = peakPoint.speed {
-                        Annotation("最高速度", coordinate: peakCoordinate, anchor: .bottom) {
-                            RouteDataBubble(title: "最高", value: HistoryFormat.number(speed, unit: "km/h"))
+                        Annotation("采样峰值", coordinate: peakCoordinate, anchor: .bottom) {
+                            RouteDataBubble(title: "采样峰值", value: HistoryFormat.number(speed, unit: "km/h"))
                         }
+                        .annotationTitles(.hidden)
                     }
                 }
             }
@@ -355,7 +355,7 @@ private struct RouteDataBubble: View {
     var body: some View {
         VStack(spacing: 1) {
             Text(title).font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.caption.bold()).monospacedDigit().foregroundStyle(RoutePalette.ink)
+            Text(value).font(.caption.bold()).monospacedDigit().foregroundStyle(.primary)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
