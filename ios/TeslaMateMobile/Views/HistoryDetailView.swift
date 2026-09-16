@@ -448,21 +448,23 @@ private struct FullScreenRouteView: View {
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(alignment: .leading, spacing: 12) {
                         RouteSummaryPanel(drive: drive)
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 12) { mapButton(forStart: true); mapButton(forStart: false) }
-                            VStack(spacing: 8) { mapButton(forStart: true); mapButton(forStart: false) }
-                        }
                         if downsampled {
                             Text("长行程路线已简化，起点和终点保留。")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
-                        Button("重新显示完整路线", systemImage: "scope") {
-                            fitRequest += 1
-                            if reduceMotion { camera = .automatic }
-                            else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
+                        HStack(spacing: 8) {
+                            mapButton(forStart: true)
+                            mapButton(forStart: false)
+                            Button("全览", systemImage: "scope") {
+                                fitRequest += 1
+                                if reduceMotion { camera = .automatic }
+                                else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
+                            }
+                            .accessibilityLabel("重新显示完整路线")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .buttonStyle(.bordered)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .buttonStyle(.bordered)
+                        .font(.subheadline)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 8)
@@ -482,13 +484,14 @@ private struct FullScreenRouteView: View {
     private func mapButton(forStart: Bool) -> some View {
         let coordinate = forStart ? coordinates.first : coordinates.last
         let name = forStart ? startName : endName
-        return Button(forStart ? "在地图中查看起点" : "在地图中查看终点",
+        return Button(forStart ? "起点" : "终点",
                       systemImage: forStart ? "location" : "flag.checkered") {
             guard let coordinate else { return }
             let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
             item.name = name
             item.openInMaps()
         }
+        .accessibilityLabel(forStart ? "在 Apple 地图中查看起点" : "在 Apple 地图中查看终点")
         .frame(maxWidth: .infinity, minHeight: 44)
         .buttonStyle(.bordered)
     }

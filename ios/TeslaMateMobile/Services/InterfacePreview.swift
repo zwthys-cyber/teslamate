@@ -21,7 +21,7 @@ enum InterfacePreview {
         return AppSession(defaults: defaults, credentials: PreviewCredentials())
     }
 
-    static let drive: [String: Any] = [
+    private static let baseDrive: [String: Any] = [
         "id": 1, "car_id": 1, "start_date": "2026-09-01T08:00:00Z", "end_date": "2026-09-01T08:42:00Z",
         "start_name": "滨海公园", "end_name": "城市艺术中心", "distance_km": 28.6, "duration_min": 42,
         "speed_max": 80, "outside_temp_avg": 24,
@@ -35,6 +35,21 @@ enum InterfacePreview {
             ["date": "2026-09-01T08:42:00Z", "latitude": 37.800, "longitude": -122.435, "speed": 12]
         ]
     ]
+    static var drive: [String: Any] {
+        var result = baseDrive
+        guard CommandLine.arguments.contains("--ui-qingdao") else { return result }
+        // Synthetic coastal route for visual review, never production trip data.
+        let coordinates: [(Double, Double)] = [
+            (36.0630, 120.3127), (36.0618, 120.3170), (36.0610, 120.3200),
+            (36.0625, 120.3240), (36.0610, 120.3280), (36.0600, 120.3320)
+        ]
+        result["positions"] = coordinates.enumerated().map { index, point in
+            ["date": "2026-09-01T08:0\(index):00Z", "latitude": point.0,
+             "longitude": point.1, "speed": 24] as [String: Any]
+        }
+        return result
+    }
+
     static let charge: [String: Any] = [
         "id": 1, "car_id": 1, "start_date": "2026-09-02T08:00:00Z", "end_date": "2026-09-02T08:35:00Z",
         "name": "城市充电站", "duration_min": 35, "energy_added_kwh": 32.4,

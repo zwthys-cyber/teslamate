@@ -26,13 +26,17 @@
         "fill-color": "#d2dbc9",
         "fill-opacity": 0.7
       },
-      "filter": [
-        "in",
-        "class",
-        "wood",
-        "grass",
-        "scrub"
-      ]
+      "filter": ["in", "class", "wood", "grass", "scrub"]
+    },
+    {
+      "id": "park-areas",
+      "type": "fill",
+      "source": "atlas",
+      "source-layer": "park",
+      "paint": {
+        "fill-color": "#bdcbb8",
+        "fill-opacity": 0.65
+      }
     },
     {
       "id": "parks",
@@ -118,12 +122,8 @@
         "line-color": "#c5dde0",
         "line-width": [
           "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
+          ["linear"],
+          ["zoom"],
           8,
           0.27999999999999997,
           12,
@@ -132,14 +132,7 @@
           1.54
         ]
       },
-      "filter": [
-        "in",
-        "class",
-        "minor",
-        "service",
-        "path",
-        "track"
-      ],
+      "filter": ["in", "class", "minor", "service", "path", "track"],
       "layout": {
         "line-cap": "round",
         "line-join": "round"
@@ -155,12 +148,8 @@
         "line-color": "#a49bc0",
         "line-width": [
           "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
+          ["linear"],
+          ["zoom"],
           8,
           0.5599999999999999,
           12,
@@ -169,12 +158,7 @@
           3.08
         ]
       },
-      "filter": [
-        "in",
-        "class",
-        "secondary",
-        "tertiary"
-      ],
+      "filter": ["in", "class", "secondary", "tertiary"],
       "layout": {
         "line-cap": "round",
         "line-join": "round"
@@ -190,12 +174,8 @@
         "line-color": "#536d95",
         "line-width": [
           "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
+          ["linear"],
+          ["zoom"],
           8,
           0.8,
           12,
@@ -204,12 +184,7 @@
           4.4
         ]
       },
-      "filter": [
-        "in",
-        "class",
-        "primary",
-        "trunk"
-      ],
+      "filter": ["in", "class", "primary", "trunk"],
       "layout": {
         "line-cap": "round",
         "line-join": "round"
@@ -225,12 +200,8 @@
         "line-color": "#344f78",
         "line-width": [
           "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
+          ["linear"],
+          ["zoom"],
           8,
           1.1199999999999999,
           12,
@@ -239,11 +210,7 @@
           6.16
         ]
       },
-      "filter": [
-        "in",
-        "class",
-        "motorway"
-      ],
+      "filter": ["in", "class", "motorway"],
       "layout": {
         "line-cap": "round",
         "line-join": "round"
@@ -258,16 +225,9 @@
       "paint": {
         "line-color": "#929faa",
         "line-width": 1,
-        "line-dasharray": [
-          2,
-          3
-        ]
+        "line-dasharray": [2, 3]
       },
-      "filter": [
-        "==",
-        "class",
-        "rail"
-      ]
+      "filter": ["==", "class", "rail"]
     },
     {
       "id": "districts",
@@ -280,29 +240,10 @@
         "text-halo-color": "#f3f4ee",
         "text-halo-width": 1.5
       },
-      "filter": [
-        "in",
-        "class",
-        "city",
-        "town",
-        "suburb",
-        "neighbourhood"
-      ],
+      "filter": ["in", "class", "suburb", "neighbourhood"],
       "layout": {
-        "text-field": [
-          "coalesce",
-          [
-            "get",
-            "name:zh"
-          ],
-          [
-            "get",
-            "name"
-          ]
-        ],
-        "text-font": [
-          "Noto Sans Regular"
-        ],
+        "text-field": ["coalesce", ["get", "name:zh"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
         "text-size": 11,
         "text-letter-spacing": 0.08
       }

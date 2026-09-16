@@ -34,6 +34,18 @@ final class InterfaceTests: XCTestCase {
         capture("05-settings", app: app)
     }
 
+    func testCoastalArchitecturalPreview() {
+        let app = launch(extra: ["--ui-qingdao"])
+        XCTAssertTrue(app.buttons["行程记录"].waitForExistence(timeout: 15))
+        app.buttons["行程记录"].tap()
+        XCTAssertTrue(app.staticTexts["滨海公园"].waitForExistence(timeout: 10))
+        app.staticTexts["滨海公园"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["全屏路线"].waitForExistence(timeout: 10))
+        app.buttons["全屏路线"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["architectural-map-ready"].waitForExistence(timeout: 45))
+        capture("12-qingdao-atlas-synthetic", app: app)
+    }
+
     func testDarkAppearanceAndCharging() {
         let app = launch(extra: ["--ui-dark"])
         XCTAssertTrue(app.buttons["充电记录"].waitForExistence(timeout: 15))
