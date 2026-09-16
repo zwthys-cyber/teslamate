@@ -19,17 +19,31 @@ final class InterfaceTests: XCTestCase {
         app.staticTexts["滨海公园"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["行程详情"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["全屏路线"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["architectural-map-ready"].waitForExistence(timeout: 45))
         capture("03-drive-detail", app: app)
         app.swipeUp()
         XCTAssertTrue(app.buttons["全屏路线"].waitForExistence(timeout: 5))
         app.buttons["全屏路线"].tap()
         XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["architectural-map-ready"].waitForExistence(timeout: 45))
         capture("04-fullscreen-route", app: app)
         app.buttons["关闭"].tap()
         XCTAssertTrue(app.navigationBars["行程详情"].waitForExistence(timeout: 5))
         app.tabBars.buttons["设置"].tap()
         XCTAssertTrue(app.staticTexts["管理连接"].waitForExistence(timeout: 5))
         capture("05-settings", app: app)
+    }
+
+    func testCoastalArchitecturalPreview() {
+        let app = launch(extra: ["--ui-qingdao"])
+        XCTAssertTrue(app.buttons["行程记录"].waitForExistence(timeout: 15))
+        app.buttons["行程记录"].tap()
+        XCTAssertTrue(app.staticTexts["滨海公园"].waitForExistence(timeout: 10))
+        app.staticTexts["滨海公园"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["全屏路线"].waitForExistence(timeout: 10))
+        app.buttons["全屏路线"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["architectural-map-ready"].waitForExistence(timeout: 45))
+        capture("12-qingdao-atlas-synthetic", app: app)
     }
 
     func testDarkAppearanceAndCharging() {
