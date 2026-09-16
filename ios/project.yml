@@ -6,6 +6,10 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+packages:
+  MapLibre:
+    url: https://github.com/maplibre/maplibre-gl-native-distribution
+    exactVersion: 6.31.0
 targets:
   TeslaMateMobile:
     type: application
@@ -22,6 +26,8 @@ targets:
         INFOPLIST_FILE: TeslaMateMobile/Info.plist
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - package: MapLibre
     scheme:
       testTargets:
         - TeslaMateMobileTests

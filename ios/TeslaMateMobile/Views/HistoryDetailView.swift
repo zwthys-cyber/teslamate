@@ -155,6 +155,7 @@ private struct RouteEndpointsCard: View {
 }
 
 private struct RouteSummaryPanel: View {
+    @AppStorage("architecturalMapEnabled") private var usesAtlas = true
     let drive: DriveRecord
 
     var body: some View {
@@ -165,8 +166,9 @@ private struct RouteSummaryPanel: View {
                 metric("最高", HistoryFormat.number(drive.speedMax, unit: "km/h"))
                 metric("外温", HistoryFormat.number(drive.outsideTempAvg, unit: "°C"))
             }
-            SpeedLegend()
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            if !usesAtlas {
+                SpeedLegend().frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -223,17 +225,18 @@ private struct DriveRouteMap: View {
     let drive: DriveRecord
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
+    @State private var fitRequest = 0
     @State private var showsFullScreen = false
 
     private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
 
     var body: some View {
         if !points.isEmpty {
-            RouteMapCanvas(points: points, camera: $camera)
+            RouteMapCanvas(points: points, camera: $camera, fitRequest: fitRequest)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     RouteSummaryPanel(drive: drive).padding(8)
                 }
-            .frame(height: 360)
+            .frame(height: 420)
 
             HStack {
                 Button("全屏路线", systemImage: "arrow.up.left.and.arrow.down.right") {
@@ -258,12 +261,62 @@ private struct DriveRouteMap: View {
     }
 
     private func fitRoute() {
+        fitRequest += 1
         if reduceMotion { camera = .automatic }
         else { withAnimation(.easeInOut(duration: 0.22)) { camera = .automatic } }
     }
 }
 
 private struct RouteMapCanvas: View {
+    let points: [TrackPoint]
+    @Binding var camera: MapCameraPosition
+    let fitRequest: Int
+    @AppStorage("architecturalMapEnabled") private var usesAtlas = true
+    @State private var failed = false
+    @State private var retry = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Picker("地图样式", selection: $usesAtlas) {
+                    Text("区位分析").tag(true)
+                    Text("Apple 地图").tag(false)
+                }
+                .pickerStyle(.segmented)
+            }
+            .padding(8)
+            ZStack(alignment: .topLeading) {
+                if usesAtlas {
+                    ArchitecturalRouteMap(points: points, fitRequest: fitRequest, failed: $failed)
+                        .id(retry)
+                    ArchitecturalMapLegend().padding(8).allowsHitTesting(false)
+                    if failed {
+                        VStack(spacing: 8) {
+                            Text("区位底图加载失败").font(.subheadline)
+                            Button("重试") { failed = false; retry += 1 }
+                            Button("使用 Apple 地图") { usesAtlas = false }
+                        }
+                        .padding().background(.regularMaterial, in: .rect(cornerRadius: 12))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    AppleRouteMapCanvas(points: points, camera: $camera)
+                }
+            }
+            if usesAtlas {
+                HStack(spacing: 4) {
+                    Link("OpenFreeMap", destination: URL(string: "https://openfreemap.org/")!)
+                    Text("·")
+                    Link("© OpenMapTiles", destination: URL(string: "https://openmaptiles.org/")!)
+                    Link("© OpenStreetMap", destination: URL(string: "https://www.openstreetmap.org/copyright")!)
+                }
+                .font(.caption2).padding(4)
+            }
+        }
+    }
+}
+
+private struct AppleRouteMapCanvas: View {
     let points: [TrackPoint]
     @Binding var camera: MapCameraPosition
 
@@ -379,6 +432,7 @@ private struct FullScreenRouteView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var camera: MapCameraPosition = .automatic
+    @State private var fitRequest = 0
 
     private var points: [TrackPoint] { (drive.positions ?? []).filter(\.hasValidCoordinate) }
     private var coordinates: [CLLocationCoordinate2D] {
@@ -390,7 +444,7 @@ private struct FullScreenRouteView: View {
 
     var body: some View {
         NavigationStack {
-            RouteMapCanvas(points: points, camera: $camera)
+            RouteMapCanvas(points: points, camera: $camera, fitRequest: fitRequest)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     VStack(alignment: .leading, spacing: 12) {
                         RouteSummaryPanel(drive: drive)
@@ -403,6 +457,7 @@ private struct FullScreenRouteView: View {
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                         Button("重新显示完整路线", systemImage: "scope") {
+                            fitRequest += 1
                             if reduceMotion { camera = .automatic }
                             else { withAnimation(.easeInOut(duration: 0.2)) { camera = .automatic } }
                         }

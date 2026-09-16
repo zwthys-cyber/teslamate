@@ -1,0 +1,311 @@
+{
+  "version": 8,
+  "name": "TeslaMate Architectural Atlas",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "atlas": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet"
+    }
+  },
+  "layers": [
+    {
+      "id": "paper",
+      "type": "background",
+      "paint": {
+        "background-color": "#f3f4ee"
+      }
+    },
+    {
+      "id": "landcover",
+      "type": "fill",
+      "source": "atlas",
+      "source-layer": "landcover",
+      "minzoom": 0,
+      "paint": {
+        "fill-color": "#d2dbc9",
+        "fill-opacity": 0.7
+      },
+      "filter": [
+        "in",
+        "class",
+        "wood",
+        "grass",
+        "scrub"
+      ]
+    },
+    {
+      "id": "parks",
+      "type": "fill",
+      "source": "atlas",
+      "source-layer": "landuse",
+      "minzoom": 0,
+      "paint": {
+        "fill-color": "#bdcbb8",
+        "fill-opacity": 0.65
+      },
+      "filter": [
+        "in",
+        "class",
+        "park",
+        "cemetery",
+        "recreation_ground",
+        "garden"
+      ]
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "atlas",
+      "source-layer": "water",
+      "minzoom": 0,
+      "paint": {
+        "fill-color": "#b8dce0"
+      }
+    },
+    {
+      "id": "shore-soft",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "water",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#d4e9e7",
+        "line-width": 9,
+        "line-opacity": 0.65
+      }
+    },
+    {
+      "id": "shore",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "water",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#f8fcfa",
+        "line-width": 1.2
+      }
+    },
+    {
+      "id": "waterways",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "waterway",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#b8dce0",
+        "line-width": 2
+      }
+    },
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "atlas",
+      "source-layer": "building",
+      "minzoom": 12,
+      "paint": {
+        "fill-color": "#e4e6e1",
+        "fill-outline-color": "#cdd3cf"
+      }
+    },
+    {
+      "id": "streets",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "transportation",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#c5dde0",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.27999999999999997,
+          12,
+          0.7,
+          16,
+          1.54
+        ]
+      },
+      "filter": [
+        "in",
+        "class",
+        "minor",
+        "service",
+        "path",
+        "track"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
+      "id": "secondary",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "transportation",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#a49bc0",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.5599999999999999,
+          12,
+          1.4,
+          16,
+          3.08
+        ]
+      },
+      "filter": [
+        "in",
+        "class",
+        "secondary",
+        "tertiary"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
+      "id": "arterial",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "transportation",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#536d95",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.8,
+          12,
+          2,
+          16,
+          4.4
+        ]
+      },
+      "filter": [
+        "in",
+        "class",
+        "primary",
+        "trunk"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
+      "id": "highways",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "transportation",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#344f78",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          1.1199999999999999,
+          12,
+          2.8,
+          16,
+          6.16
+        ]
+      },
+      "filter": [
+        "in",
+        "class",
+        "motorway"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      }
+    },
+    {
+      "id": "rail",
+      "type": "line",
+      "source": "atlas",
+      "source-layer": "transportation",
+      "minzoom": 0,
+      "paint": {
+        "line-color": "#929faa",
+        "line-width": 1,
+        "line-dasharray": [
+          2,
+          3
+        ]
+      },
+      "filter": [
+        "==",
+        "class",
+        "rail"
+      ]
+    },
+    {
+      "id": "districts",
+      "type": "symbol",
+      "source": "atlas",
+      "source-layer": "place",
+      "minzoom": 0,
+      "paint": {
+        "text-color": "#67787f",
+        "text-halo-color": "#f3f4ee",
+        "text-halo-width": 1.5
+      },
+      "filter": [
+        "in",
+        "class",
+        "city",
+        "town",
+        "suburb",
+        "neighbourhood"
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name:zh"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": 11,
+        "text-letter-spacing": 0.08
+      }
+    }
+  ]
+}
